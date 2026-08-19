@@ -37,20 +37,26 @@ export async function saveUpload(file: File, folder: string): Promise<string> {
   if (driver === "s3") {
     return saveToS3(key, buffer, detectedMime);
   }
-  return saveToLocalDisk(key, buffer);
+  return saveToLocalDisk(key, buffer, detectedMime);
 }
 
 // ---------------------------------------------------------------------------
-// Local disk driver — fine for development, NOT recommended for production
-// on serverless hosts (Vercel's filesystem is ephemeral). Switch
-// STORAGE_DRIVER=s3 and configure Cloudflare R2 / AWS S3 before going live.
+// Local disk driver — fine for development. On serverless hosts (Vercel)
+// with read-only filesystems, falls back to Data URI if S3 is not configured.
 // ---------------------------------------------------------------------------
-async function saveToLocalDisk(key: string, buffer: Buffer): Promise<string> {
-  const uploadsDir = path.join(process.cwd(), "public", "uploads");
-  const fullPath = path.join(uploadsDir, key);
-  await mkdir(path.dirname(fullPath), { recursive: true });
-  await writeFile(fullPath, buffer);
-  return `/uploads/${key}`;
+async function saveToLocalDisk(key: string, buffer: Buffer, detectedMime: string): Promise<string> {
+  try {
+    const uploadsDir = path.join(process.cwd(), "public", "uploads");
+    const fullPath = path.join(uploadsDir, key);
+    await mkdir(path.dirname(fullPath), { recursive: true });
+    await writeFile(fullPath, buffer);
+    return `/uploads/${key}`;
+  } catch (err: unknown) {
+    if (process.env.VERCEL || (err && typeof err === "object" && "code" in err && err.code === "EROFS")) {
+      return `data:${detectedMime};base64,${buffer.toString("base64")}`;
+    }
+    throw err;
+  }
 }
 
 // ---------------------------------------------------------------------------

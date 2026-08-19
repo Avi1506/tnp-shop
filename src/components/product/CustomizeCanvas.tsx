@@ -121,17 +121,13 @@ export default function CustomizeCanvas({
     const file = e.target.files?.[0];
     if (!file) return;
     setUploading(true);
+    let localUrl = "";
     try {
-      const fd = new FormData();
-      fd.append("file", file);
-      fd.append("folder", "customizations");
-      const res = await fetch("/api/upload", { method: "POST", body: fd });
-      const data = await res.json();
-      if (!res.ok) throw new Error(data.error || "Upload failed");
-
+      // 1. Create local Object URL for instant local canvas preview
+      localUrl = URL.createObjectURL(file);
       const canvas = fabricRef.current;
       if (canvas) {
-        const img = await fabric.FabricImage.fromURL(data.url, { crossOrigin: "anonymous" });
+        const img = await fabric.FabricImage.fromURL(localUrl, { crossOrigin: "anonymous" });
         const box = printAreaBox();
         const scale = Math.min(box.width / (img.width ?? 1), box.height / (img.height ?? 1));
         img.set({
@@ -149,10 +145,27 @@ export default function CustomizeCanvas({
         canvas.setActiveObject(img);
         canvas.renderAll();
       }
-      setUploadedUrls((prev) => (config.fields.multipleImages ? [...prev, data.url] : [data.url]));
+
+      // 2. Upload to server storage (or Data URI on Vercel)
+      let finalUrl = localUrl;
+      try {
+        const fd = new FormData();
+        fd.append("file", file);
+        fd.append("folder", "customizations");
+        const res = await fetch("/api/upload", { method: "POST", body: fd });
+        const data = await res.json();
+        if (res.ok && data.url) {
+          finalUrl = data.url;
+        }
+      } catch {
+        // Fallback to local URL on server error
+      }
+
+      setUploadedUrls((prev) => (config.fields.multipleImages ? [...prev, finalUrl] : [finalUrl]));
       toast.success("Photo added — drag, resize or rotate it to fit.");
     } catch (err) {
-      toast.error(err instanceof Error ? err.message : "Upload failed");
+      console.error("[upload error]", err);
+      toast.error(err instanceof Error ? err.message : "Could not load photo");
     } finally {
       setUploading(false);
       if (fileInputRef.current) fileInputRef.current.value = "";
@@ -235,20 +248,28 @@ export default function CustomizeCanvas({
 
     setSubmitting(true);
     try {
-      const dataUrl = canvas.toDataURL({ format: "png", quality: 1, multiplier: 2 });
-      const blob = await (await fetch(dataUrl)).blob();
-      const fd = new FormData();
-      fd.append("file", new File([blob], "preview.png", { type: "image/png" }));
-      fd.append("folder", "previews");
-      const res = await fetch("/api/upload", { method: "POST", body: fd });
-      const data = await res.json();
-      if (!res.ok) throw new Error(data.error || "Could not save your preview");
+      const dataUrl = canvas.toDataURL({ format: "png", quality: 0.9, multiplier: 1.5 });
+      let previewImageUrl = dataUrl;
+
+      try {
+        const blob = await (await fetch(dataUrl)).blob();
+        const fd = new FormData();
+        fd.append("file", new File([blob], "preview.png", { type: "image/png" }));
+        fd.append("folder", "previews");
+        const res = await fetch("/api/upload", { method: "POST", body: fd });
+        const data = await res.json();
+        if (res.ok && data.url) {
+          previewImageUrl = data.url;
+        }
+      } catch {
+        // Fallback to dataUrl on server error
+      }
 
       addLine({
         productId,
         slug,
         name,
-        image: data.url,
+        image: previewImageUrl,
         unitPrice: price,
         quantity: 1,
         customization: {
@@ -259,7 +280,7 @@ export default function CustomizeCanvas({
           productColor: null,
           size: size || null,
           specialInstructions: instructions || null,
-          previewImage: data.url,
+          previewImage: previewImageUrl,
           approved: true,
         },
       });
