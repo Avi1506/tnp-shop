@@ -1,7 +1,7 @@
 import { NextRequest, NextResponse } from "next/server";
 import { requireAdmin } from "@/lib/admin-guard";
 import { db } from "@/db";
-import { products, categories } from "@/db/schema";
+import { products, categories, cartItems, wishlists, orderItems } from "@/db/schema";
 import { inArray, eq } from "drizzle-orm";
 import Papa from "papaparse";
 
@@ -24,8 +24,39 @@ export async function POST(req: NextRequest) {
   if (action === "delete") {
     const ids: string[] = body.ids ?? [];
     if (ids.length === 0) return NextResponse.json({ error: "No products selected." }, { status: 400 });
-    await db.delete(products).where(inArray(products.id, ids));
-    return NextResponse.json({ ok: true, deleted: ids.length });
+
+    try {
+      // Delete dependent cart and wishlist items first
+      await db.delete(cartItems).where(inArray(cartItems.productId, ids));
+      await db.delete(wishlists).where(inArray(wishlists.productId, ids));
+
+      // Separate products with order history vs without
+      const orderedProductRows = await db.select({ productId: orderItems.productId }).from(orderItems).where(inArray(orderItems.productId, ids));
+      const orderedProductIds = new Set(orderedProductRows.map((r) => r.productId));
+
+      const idsToHardDelete = ids.filter((id) => !orderedProductIds.has(id));
+      const idsToSoftDelete = ids.filter((id) => orderedProductIds.has(id));
+
+      if (idsToSoftDelete.length > 0) {
+        await db.update(products).set({ isActive: false }).where(inArray(products.id, idsToSoftDelete));
+      }
+
+      if (idsToHardDelete.length > 0) {
+        await db.delete(products).where(inArray(products.id, idsToHardDelete));
+      }
+
+      return NextResponse.json({
+        ok: true,
+        deleted: idsToHardDelete.length,
+        archived: idsToSoftDelete.length,
+      });
+    } catch (err) {
+      console.error("[bulk delete products] error:", err);
+      return NextResponse.json(
+        { error: err instanceof Error ? err.message : "Failed to delete products." },
+        { status: 500 }
+      );
+    }
   }
 
   // --- BULK EDIT -------------------------------------------------------

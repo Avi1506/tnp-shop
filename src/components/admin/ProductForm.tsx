@@ -122,14 +122,23 @@ export default function ProductForm({
   async function handleDelete() {
     if (!initial?.id) return;
     if (!confirm("Delete this product? This cannot be undone.")) return;
-    const res = await fetch(`/api/admin/products/${initial.id}`, { method: "DELETE" });
-    if (!res.ok) {
-      toast.error("Failed to delete");
-      return;
+    try {
+      const res = await fetch(`/api/admin/products/${initial.id}`, { method: "DELETE" });
+      const data = await res.json().catch(() => ({}));
+      if (!res.ok) {
+        toast.error(data.error ?? "Failed to delete product");
+        return;
+      }
+      if (data.archived) {
+        toast(data.message ?? "Product set to Hidden", { icon: "ℹ️" });
+      } else {
+        toast.success("Product deleted");
+      }
+      router.push("/admin/products");
+      router.refresh();
+    } catch {
+      toast.error("Failed to delete product");
     }
-    toast.success("Product deleted");
-    router.push("/admin/products");
-    router.refresh();
   }
 
   return (
