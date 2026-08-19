@@ -193,6 +193,7 @@ export const orders = pgTable("orders", {
   orderNumber: varchar("order_number", { length: 20 }).notNull(),
   userId: text("user_id").notNull().references(() => users.id, { onDelete: "restrict" }),
   status: varchar("status", { length: 24 }).notNull().default("pending_payment"),
+  paymentMethod: varchar("payment_method", { length: 20 }).notNull().default("online"), // "online" | "cod"
   subtotal: numeric("subtotal", { precision: 10, scale: 2 }).notNull(),
   shippingFee: numeric("shipping_fee", { precision: 10, scale: 2 }).notNull().default("0"),
   discount: numeric("discount", { precision: 10, scale: 2 }).notNull().default("0"),

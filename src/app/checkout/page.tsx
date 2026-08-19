@@ -38,6 +38,8 @@ export default function CheckoutPage() {
   });
   const [note, setNote] = useState("");
 
+  const [paymentMethod, setPaymentMethod] = useState<"online" | "cod">("online");
+
   async function handlePay(e: React.FormEvent) {
     e.preventDefault();
     if (lines.length === 0) return;
@@ -55,11 +57,21 @@ export default function CheckoutPage() {
           })),
           address,
           customerNote: note,
+          paymentMethod,
         }),
       });
       const data = await res.json();
       if (!res.ok) throw new Error(data.error || "Could not create order");
 
+      // --- COD HANDLER ---
+      if (data.isCod) {
+        clear();
+        toast.success("Order placed successfully with Cash on Delivery!");
+        router.push(`/order/${data.orderNumber}/confirmation`);
+        return;
+      }
+
+      // --- ONLINE PAYMENT (RAZORPAY) HANDLER ---
       const rzp = new window.Razorpay({
         key: data.keyId,
         amount: data.amount,
@@ -181,11 +193,51 @@ export default function CheckoutPage() {
               className="w-full text-sm border border-border rounded-lg px-3 py-2.5 outline-none focus:border-gold resize-none"
             />
 
-            <div className="bg-offwhite border border-border rounded-xl p-4">
-              <p className="text-xs text-navy/70">
-                <strong>Prepaid orders only.</strong> Since our products are specially customized for you, all
-                orders are processed online. COD is not available for customized products.
-              </p>
+            <div className="space-y-3">
+              <h2 className="font-semibold text-navy">Payment Method</h2>
+              <div className="grid grid-cols-1 sm:grid-cols-2 gap-3">
+                <label
+                  onClick={() => setPaymentMethod("online")}
+                  className={`p-4 border rounded-xl cursor-pointer transition flex flex-col gap-1 ${
+                    paymentMethod === "online"
+                      ? "border-navy bg-navy/5 ring-1 ring-navy"
+                      : "border-border hover:border-navy/40"
+                  }`}
+                >
+                  <div className="flex items-center justify-between">
+                    <span className="font-medium text-sm text-navy">Online Payment</span>
+                    <input
+                      type="radio"
+                      name="paymentMethod"
+                      checked={paymentMethod === "online"}
+                      onChange={() => setPaymentMethod("online")}
+                      className="accent-navy"
+                    />
+                  </div>
+                  <span className="text-xs text-navy/60">UPI, Credit/Debit Cards, Netbanking</span>
+                </label>
+
+                <label
+                  onClick={() => setPaymentMethod("cod")}
+                  className={`p-4 border rounded-xl cursor-pointer transition flex flex-col gap-1 ${
+                    paymentMethod === "cod"
+                      ? "border-navy bg-navy/5 ring-1 ring-navy"
+                      : "border-border hover:border-navy/40"
+                  }`}
+                >
+                  <div className="flex items-center justify-between">
+                    <span className="font-medium text-sm text-navy">Cash on Delivery</span>
+                    <input
+                      type="radio"
+                      name="paymentMethod"
+                      checked={paymentMethod === "cod"}
+                      onChange={() => setPaymentMethod("cod")}
+                      className="accent-navy"
+                    />
+                  </div>
+                  <span className="text-xs text-navy/60">Pay cash upon delivery</span>
+                </label>
+              </div>
             </div>
 
             <button
@@ -194,7 +246,9 @@ export default function CheckoutPage() {
               className="w-full bg-gold text-navy-dark font-semibold py-3.5 rounded-full hover:brightness-110 transition disabled:opacity-60 flex items-center justify-center gap-2"
             >
               {loading && <Loader2 size={16} className="animate-spin" />}
-              Pay {formatINR(subtotal)} Securely
+              {paymentMethod === "cod"
+                ? `Place COD Order (${formatINR(subtotal)})`
+                : `Pay ${formatINR(subtotal)} Securely`}
             </button>
           </form>
 

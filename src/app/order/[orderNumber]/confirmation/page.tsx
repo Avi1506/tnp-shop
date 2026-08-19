@@ -49,8 +49,14 @@ export default async function OrderConfirmationPage({
             <p className="text-sm font-semibold text-navy">{formatINR(it.lineTotal)}</p>
           </div>
         ))}
-        <div className="flex justify-between pt-4 font-semibold text-navy">
-          <span>Total Paid</span>
+        <div className="flex justify-between pt-4 border-t border-border font-semibold text-navy">
+          <span>Payment Method</span>
+          <span className="text-sm font-medium bg-offwhite border border-border px-3 py-1 rounded-md">
+            {order.paymentMethod === "cod" ? "💵 Cash on Delivery (COD)" : "💳 Prepaid / Online"}
+          </span>
+        </div>
+        <div className="flex justify-between pt-3 font-semibold text-navy text-lg">
+          <span>Total Amount</span>
           <span>{formatINR(order.total)}</span>
         </div>
       </div>
