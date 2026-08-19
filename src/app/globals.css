@@ -1,0 +1,57 @@
+@import "tailwindcss";
+
+:root {
+  --background: #ffffff;
+  --foreground: #1b2a4a;
+
+  /* Brand palette — matches the print catalogue */
+  --color-navy: #1b2a4a;
+  --color-navy-dark: #10192e;
+  --color-red: #a63446;
+  --color-gold: #b8912a;
+  --color-teal: #2f6f6b;
+  --color-offwhite: #faf9f6;
+  --color-border: #e9e4d8;
+}
+
+@theme inline {
+  --color-background: var(--background);
+  --color-foreground: var(--foreground);
+  --color-navy: var(--color-navy);
+  --color-navy-dark: var(--color-navy-dark);
+  --color-red: var(--color-red);
+  --color-gold: var(--color-gold);
+  --color-teal: var(--color-teal);
+  --color-offwhite: var(--color-offwhite);
+  --color-border: var(--color-border);
+  --font-display: var(--font-lora);
+  --font-sans: var(--font-poppins);
+}
+
+body {
+  background: var(--background);
+  color: var(--foreground);
+  font-family: var(--font-poppins), ui-sans-serif, system-ui, sans-serif;
+}
+
+h1, h2, h3, .font-display {
+  font-family: var(--font-lora), Georgia, serif;
+}
+
+.placeholder-card {
+  background: var(--color-offwhite);
+  border: 1.5px dashed var(--color-gold);
+}
+
+::selection {
+  background: var(--color-gold);
+  color: white;
+}
+
+.container-page {
+  max-width: 1280px;
+  margin-left: auto;
+  margin-right: auto;
+  padding-left: 1.25rem;
+  padding-right: 1.25rem;
+}
