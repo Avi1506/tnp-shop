@@ -273,38 +273,40 @@ export default function CustomizeCanvas({
   }
 
   return (
-    <div className="grid md:grid-cols-[1fr_380px] gap-10">
+    <div className="grid md:grid-cols-[1fr_380px] gap-6 md:gap-10">
       {/* Canvas */}
-      <div>
-        <div className="rounded-2xl border border-border bg-offwhite p-4 flex items-center justify-center">
-          <canvas ref={canvasElRef} className="rounded-lg shadow-inner" />
+      <div className="w-full">
+        <div className="w-full max-w-[520px] mx-auto rounded-2xl border border-border bg-offwhite p-2 sm:p-4 flex items-center justify-center overflow-hidden">
+          <div className="relative w-full aspect-square flex items-center justify-center [&_.canvas-container]:!w-full [&_.canvas-container]:!h-full [&_canvas]:!w-full [&_canvas]:!h-full [&_canvas]:!max-w-full">
+            <canvas ref={canvasElRef} className="rounded-lg shadow-inner" />
+          </div>
         </div>
-        <p className="text-xs text-navy/50 mt-3 text-center">
+        <p className="text-xs text-navy/60 mt-3 text-center px-2">
           The dashed box shows the printable area. Drag, resize (corner handles) or rotate your photo and text
           to fit.
         </p>
-        <div className="flex justify-center gap-3 mt-4">
+        <div className="flex justify-center gap-4 mt-4">
           <button
             onClick={handleDeleteSelected}
             disabled={!hasSelection}
-            className="text-xs font-semibold flex items-center gap-1.5 text-navy/70 hover:text-red disabled:opacity-30 disabled:cursor-not-allowed"
+            className="text-xs font-semibold py-2 px-3 rounded-lg border border-border flex items-center gap-1.5 text-navy/80 hover:text-red hover:border-red/40 disabled:opacity-30 disabled:cursor-not-allowed transition"
           >
             <Trash2 size={14} /> Delete Selected
           </button>
           <button
             onClick={handleReset}
-            className="text-xs font-semibold flex items-center gap-1.5 text-navy/70 hover:text-red"
+            className="text-xs font-semibold py-2 px-3 rounded-lg border border-border flex items-center gap-1.5 text-navy/80 hover:text-red hover:border-red/40 transition"
           >
-            <RotateCcw size={14} /> Reset
+            <RotateCcw size={14} /> Reset All
           </button>
         </div>
       </div>
 
       {/* Controls */}
-      <div className="space-y-6">
+      <div className="space-y-6 bg-white p-4 sm:p-6 rounded-2xl border border-border md:border-0 md:p-0 md:bg-transparent">
         <div>
-          <h2 className="font-display text-xl font-semibold text-navy mb-1">{name}</h2>
-          <p className="text-red font-bold">Starting ₹{price}</p>
+          <h2 className="font-display text-xl sm:text-2xl font-semibold text-navy mb-1">{name}</h2>
+          <p className="text-red font-bold text-lg">Starting ₹{price}</p>
         </div>
 
         {config.fields.imageUpload && (
@@ -322,11 +324,11 @@ export default function CustomizeCanvas({
             <button
               onClick={() => fileInputRef.current?.click()}
               disabled={uploading}
-              className="w-full border-2 border-dashed border-gold/60 rounded-xl py-6 flex flex-col items-center gap-2 text-navy/70 hover:bg-offwhite transition disabled:opacity-60"
+              className="w-full border-2 border-dashed border-gold/60 rounded-xl py-5 sm:py-6 flex flex-col items-center justify-center gap-2 text-navy/70 hover:bg-offwhite transition active:scale-[0.99] disabled:opacity-60"
             >
-              {uploading ? <Loader2 size={22} className="animate-spin" /> : <Upload size={22} />}
-              <span className="text-xs font-medium">
-                {uploading ? "Uploading..." : "Click to upload JPG or PNG"}
+              {uploading ? <Loader2 size={24} className="animate-spin text-gold" /> : <Upload size={24} className="text-gold" />}
+              <span className="text-xs sm:text-sm font-medium">
+                {uploading ? "Uploading photo..." : "Click to upload JPG or PNG"}
               </span>
             </button>
           </div>
@@ -335,9 +337,9 @@ export default function CustomizeCanvas({
         {config.fields.text && (
           <div>
             <p className="text-xs font-semibold text-navy/60 uppercase tracking-wide mb-2 flex items-center gap-1.5">
-              <Type size={13} /> Add Text
+              <Type size={14} /> Add Custom Text
             </p>
-            <div className="flex gap-2 mb-2">
+            <div className="flex gap-2 mb-3">
               <input
                 value={textValue}
                 onChange={(e) => setTextValue(e.target.value)}
@@ -347,46 +349,54 @@ export default function CustomizeCanvas({
               />
               <button
                 onClick={handleAddText}
-                className="bg-navy text-white text-xs font-semibold px-4 rounded-lg hover:bg-navy-dark shrink-0"
+                className="bg-navy text-white text-xs font-semibold px-4 rounded-lg hover:bg-navy-dark shrink-0 flex items-center gap-1.5 transition active:scale-95"
               >
-                <ImagePlus size={14} className="inline mr-1" /> Add
+                <ImagePlus size={14} /> Add Text
               </button>
             </div>
 
             {config.fields.fontChoice && (
-              <div className="flex flex-wrap gap-2 mb-2">
-                {config.fields.fonts.map((f) => (
-                  <button
-                    key={f}
-                    onClick={() => {
-                      setFont(f);
-                      applyStyleToSelection({ font: f });
-                    }}
-                    className={`text-xs px-3 py-1.5 rounded-full border ${
-                      font === f ? "bg-navy text-white border-navy" : "border-border text-navy"
-                    }`}
-                    style={{ fontFamily: f }}
-                  >
-                    {f}
-                  </button>
-                ))}
+              <div className="mb-3">
+                <p className="text-[11px] font-medium text-navy/50 mb-1.5">Select Font Style:</p>
+                <div className="flex flex-wrap gap-2">
+                  {config.fields.fonts.map((f) => (
+                    <button
+                      key={f}
+                      onClick={() => {
+                        setFont(f);
+                        applyStyleToSelection({ font: f });
+                      }}
+                      className={`text-xs px-3.5 py-2 rounded-full border transition active:scale-95 ${
+                        font === f ? "bg-navy text-white border-navy font-semibold" : "border-border text-navy hover:border-navy"
+                      }`}
+                      style={{ fontFamily: f }}
+                    >
+                      {f}
+                    </button>
+                  ))}
+                </div>
               </div>
             )}
 
             {config.fields.textColorChoice && (
-              <div className="flex items-center gap-2">
-                {config.fields.colors.map((c) => (
-                  <button
-                    key={c}
-                    onClick={() => {
-                      setTextColor(c);
-                      applyStyleToSelection({ color: c });
-                    }}
-                    className={`h-6 w-6 rounded-full border-2 ${textColor === c ? "border-gold" : "border-white"}`}
-                    style={{ backgroundColor: c, boxShadow: "0 0 0 1px #E9E4D8" }}
-                    aria-label={c}
-                  />
-                ))}
+              <div>
+                <p className="text-[11px] font-medium text-navy/50 mb-1.5">Select Text Colour:</p>
+                <div className="flex items-center gap-3 flex-wrap">
+                  {config.fields.colors.map((c) => (
+                    <button
+                      key={c}
+                      onClick={() => {
+                        setTextColor(c);
+                        applyStyleToSelection({ color: c });
+                      }}
+                      className={`h-8 w-8 rounded-full border-2 transition-transform active:scale-95 ${
+                        textColor === c ? "border-gold scale-110 shadow-md" : "border-white"
+                      }`}
+                      style={{ backgroundColor: c, boxShadow: "0 0 0 1px #E9E4D8" }}
+                      aria-label={c}
+                    />
+                  ))}
+                </div>
               </div>
             )}
           </div>
@@ -394,13 +404,13 @@ export default function CustomizeCanvas({
 
         {config.fields.sizeChoice && config.fields.sizes.length > 0 && (
           <div>
-            <p className="text-xs font-semibold text-navy/60 uppercase tracking-wide mb-2">Size</p>
+            <p className="text-xs font-semibold text-navy/60 uppercase tracking-wide mb-2">Select Size</p>
             <div className="flex flex-wrap gap-2">
               {config.fields.sizes.map((s) => (
                 <button
                   key={s}
                   onClick={() => setSize(s)}
-                  className={`text-sm px-4 py-2 rounded-lg border transition ${
+                  className={`text-sm px-4 py-2.5 rounded-lg border transition active:scale-95 font-medium ${
                     size === s ? "bg-navy text-white border-navy" : "border-border text-navy hover:border-navy"
                   }`}
                 >
@@ -426,22 +436,22 @@ export default function CustomizeCanvas({
           </div>
         )}
 
-        <label className="flex items-start gap-2.5 text-sm text-navy/80 cursor-pointer">
+        <label className="flex items-start gap-3 text-sm text-navy/80 cursor-pointer bg-offwhite p-3 rounded-xl border border-border">
           <input
             type="checkbox"
             checked={approved}
             onChange={(e) => setApproved(e.target.checked)}
-            className="mt-0.5 accent-gold h-4 w-4"
+            className="mt-0.5 accent-gold h-4 w-4 shrink-0"
           />
-          I have reviewed and approved my customization.
+          <span className="text-xs sm:text-sm">I have reviewed and approved my live customization preview.</span>
         </label>
 
         <button
           onClick={handleAddToCart}
           disabled={submitting || !approved}
-          className="w-full bg-gold text-navy-dark font-semibold py-3.5 rounded-full hover:brightness-110 transition disabled:opacity-50 disabled:cursor-not-allowed flex items-center justify-center gap-2"
+          className="w-full bg-gold text-navy-dark font-semibold py-4 rounded-full hover:brightness-110 transition disabled:opacity-50 disabled:cursor-not-allowed flex items-center justify-center gap-2 text-base shadow-md active:scale-[0.99]"
         >
-          {submitting && <Loader2 size={16} className="animate-spin" />}
+          {submitting && <Loader2 size={18} className="animate-spin" />}
           {submitting ? "Saving your design..." : "Add to Cart"}
         </button>
       </div>
