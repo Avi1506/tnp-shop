@@ -1,6 +1,6 @@
 "use client";
 
-import { useState } from "react";
+import { useState, useEffect } from "react";
 import Script from "next/script";
 import { useRouter } from "next/navigation";
 import { useSession } from "next-auth/react";
@@ -26,6 +26,12 @@ export default function CheckoutPage() {
   const { data: session } = useSession();
   const router = useRouter();
   const [loading, setLoading] = useState(false);
+  const [codConfig, setCodConfig] = useState<{
+    enabled: boolean;
+    minAmount?: number;
+    maxAmount?: number;
+    note?: string;
+  }>({ enabled: true });
   const [address, setAddress] = useState({
     fullName: session?.user?.name ?? "",
     phone: "",
@@ -39,6 +45,25 @@ export default function CheckoutPage() {
   const [note, setNote] = useState("");
 
   const [paymentMethod, setPaymentMethod] = useState<"online" | "cod">("online");
+
+  useEffect(() => {
+    fetch("/api/settings")
+      .then((r) => r.json())
+      .then((d) => {
+        if (d?.cod) {
+          setCodConfig(d.cod);
+          if (!d.cod.enabled) {
+            setPaymentMethod("online");
+          }
+        }
+      })
+      .catch(() => {});
+  }, []);
+
+  const isCodEligible =
+    codConfig.enabled &&
+    (!codConfig.minAmount || subtotal >= codConfig.minAmount) &&
+    (!codConfig.maxAmount || subtotal <= codConfig.maxAmount);
 
   async function handlePay(e: React.FormEvent) {
     e.preventDefault();
@@ -195,7 +220,7 @@ export default function CheckoutPage() {
 
             <div className="space-y-3">
               <h2 className="font-semibold text-navy">Payment Method</h2>
-              <div className="grid grid-cols-1 sm:grid-cols-2 gap-3">
+              <div className={`grid grid-cols-1 ${codConfig.enabled ? "sm:grid-cols-2" : ""} gap-3`}>
                 <label
                   onClick={() => setPaymentMethod("online")}
                   className={`p-4 border rounded-xl cursor-pointer transition flex flex-col gap-1 ${
@@ -217,26 +242,41 @@ export default function CheckoutPage() {
                   <span className="text-xs text-navy/60">UPI, Credit/Debit Cards, Netbanking</span>
                 </label>
 
-                <label
-                  onClick={() => setPaymentMethod("cod")}
-                  className={`p-4 border rounded-xl cursor-pointer transition flex flex-col gap-1 ${
-                    paymentMethod === "cod"
-                      ? "border-navy bg-navy/5 ring-1 ring-navy"
-                      : "border-border hover:border-navy/40"
-                  }`}
-                >
-                  <div className="flex items-center justify-between">
-                    <span className="font-medium text-sm text-navy">Cash on Delivery</span>
-                    <input
-                      type="radio"
-                      name="paymentMethod"
-                      checked={paymentMethod === "cod"}
-                      onChange={() => setPaymentMethod("cod")}
-                      className="accent-navy"
-                    />
-                  </div>
-                  <span className="text-xs text-navy/60">Pay cash upon delivery</span>
-                </label>
+                {codConfig.enabled && (
+                  <label
+                    onClick={() => {
+                      if (isCodEligible) setPaymentMethod("cod");
+                    }}
+                    className={`p-4 border rounded-xl transition flex flex-col gap-1 ${
+                      !isCodEligible
+                        ? "opacity-50 cursor-not-allowed border-border bg-gray-50"
+                        : paymentMethod === "cod"
+                        ? "border-navy bg-navy/5 ring-1 ring-navy cursor-pointer"
+                        : "border-border hover:border-navy/40 cursor-pointer"
+                    }`}
+                  >
+                    <div className="flex items-center justify-between">
+                      <span className="font-medium text-sm text-navy">Cash on Delivery</span>
+                      <input
+                        type="radio"
+                        name="paymentMethod"
+                        disabled={!isCodEligible}
+                        checked={paymentMethod === "cod"}
+                        onChange={() => {
+                          if (isCodEligible) setPaymentMethod("cod");
+                        }}
+                        className="accent-navy"
+                      />
+                    </div>
+                    <span className="text-xs text-navy/60">
+                      {isCodEligible
+                        ? codConfig.note || "Pay cash upon delivery"
+                        : codConfig.minAmount && subtotal < codConfig.minAmount
+                        ? `Available for orders above ₹${codConfig.minAmount}`
+                        : `Available for orders up to ₹${codConfig.maxAmount}`}
+                    </span>
+                  </label>
+                )}
               </div>
             </div>
 

@@ -39,7 +39,12 @@ export default async function AdminOrderDetailPage({ params }: { params: Promise
             </span>
           </div>
         </div>
-        <OrderStatusChanger orderId={order.id} currentStatus={order.status} />
+        <OrderStatusChanger
+          orderId={order.id}
+          currentStatus={order.status}
+          initialTrackingId={order.trackingId}
+          initialTrackingUrl={order.trackingUrl}
+        />
       </div>
 
       <div className="grid md:grid-cols-[1fr_320px] gap-8">

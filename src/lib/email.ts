@@ -156,3 +156,84 @@ export function orderStatusUpdateEmail(params: { orderNumber: string; status: st
      <p style="color:#1B2A4A;font-size:15px;font-weight:600;">${STATUS_LABEL[params.status] ?? params.status}</p>`
   );
 }
+
+export function welcomeCustomerEmail(params: { customerName: string; email: string }) {
+  return shell(
+    "Welcome to The Novelty Prints!",
+    `<p style="color:#3A3A3A;font-size:14px;">Hi ${params.customerName},</p>
+     <p style="color:#3A3A3A;font-size:14px;line-height:1.6;">
+       Welcome to <strong>The Novelty Prints</strong>! Your account has been created successfully.
+     </p>
+     <p style="color:#3A3A3A;font-size:14px;line-height:1.6;">
+       You can now design custom corporate gifts, branded apparel, customized mugs, caps, and personalized stationery with live interactive previews!
+     </p>
+     <div style="margin:24px 0;">
+       <a href="${process.env.NEXT_PUBLIC_SITE_URL || "https://thenoveltyprints.com"}/shop" style="background:#B8912A;color:#1B2A4A;font-weight:600;padding:12px 24px;border-radius:8px;text-decoration:none;display:inline-block;font-size:14px;">
+         Explore Our Collection →
+       </a>
+     </div>
+     <p style="color:#8A8577;font-size:12px;margin-top:20px;">
+       Need bulk customization for events or corporate gifting? Reply to this email or reach us on WhatsApp at <strong>89230 32312</strong>.
+     </p>`
+  );
+}
+
+export function orderShippedEmail(params: {
+  orderNumber: string;
+  customerName: string;
+  trackingId?: string | null;
+  trackingUrl?: string | null;
+}) {
+  return shell(
+    "Your order has been shipped! 🚀",
+    `<p style="color:#3A3A3A;font-size:14px;">Hi ${params.customerName},</p>
+     <p style="color:#3A3A3A;font-size:14px;line-height:1.6;">
+       Great news! Your customized order <strong>${params.orderNumber}</strong> has been carefully packed, quality-checked, and handed over to our courier partner.
+     </p>
+     <table style="width:100%;border-collapse:collapse;margin:20px 0;background:#FAF9F6;border-radius:8px;padding:12px;">
+       ${row("Order Number", params.orderNumber)}
+       ${params.trackingId ? row("Tracking AWB / ID", params.trackingId) : ""}
+       ${row("Status", "In Transit (Pan India Delivery)")}
+     </table>
+     ${
+       params.trackingUrl
+         ? `<div style="margin:24px 0;">
+             <a href="${params.trackingUrl}" target="_blank" rel="noreferrer" style="background:#1B2A4A;color:#ffffff;font-weight:600;padding:12px 24px;border-radius:8px;text-decoration:none;display:inline-block;font-size:13px;">
+               Track Courier Package →
+             </a>
+           </div>`
+         : `<p style="color:#3A3A3A;font-size:13px;">
+             You can also track your order anytime directly from 
+             <a href="${process.env.NEXT_PUBLIC_SITE_URL || "https://thenoveltyprints.com"}/track-order" style="color:#B8912A;font-weight:600;">
+               Track Order Page
+             </a>.
+           </p>`
+     }
+     <p style="color:#8A8577;font-size:12px;margin-top:20px;">
+       If you have any questions regarding delivery, feel free to reply to this email or ping us on WhatsApp at 89230 32312.
+     </p>`
+  );
+}
+
+export function orderDeliveredEmail(params: {
+  orderNumber: string;
+  customerName: string;
+}) {
+  return shell(
+    "Your order has been delivered! 🎉",
+    `<p style="color:#3A3A3A;font-size:14px;">Hi ${params.customerName},</p>
+     <p style="color:#3A3A3A;font-size:14px;line-height:1.6;">
+       Your order <strong>${params.orderNumber}</strong> has been marked as <strong>Delivered</strong>! We hope you love your customized prints as much as we loved creating them for you.
+     </p>
+     <div style="background:#FAF9F6;border:1px solid #E9E4D8;border-radius:8px;padding:16px;margin:20px 0;text-align:center;">
+       <p style="color:#1B2A4A;font-weight:600;font-size:14px;margin:0 0 6px;">How was your experience?</p>
+       <p style="color:#8A8577;font-size:12px;margin:0;">
+         Share your photos on Instagram and tag us <a href="https://instagram.com/thenoveltyprints" style="color:#B8912A;font-weight:600;">@thenoveltyprints</a> to get featured!
+       </p>
+     </div>
+     <p style="color:#3A3A3A;font-size:13px;margin-top:20px;">
+       Thank you for choosing The Novelty Prints!
+     </p>`
+  );
+}
+

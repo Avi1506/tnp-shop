@@ -95,7 +95,7 @@ export default function CartPage() {
             Proceed to Checkout
           </Link>
           <p className="text-[11px] text-navy/40 text-center mt-3">
-            Prepaid orders only — COD is not available for customized products.
+            100% Safe &amp; Secure Checkout · UPI, Cards, Netbanking &amp; COD available
           </p>
         </div>
       </div>

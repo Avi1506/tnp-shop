@@ -98,6 +98,31 @@ export async function POST(req: NextRequest) {
 
   const shippingFee = 0;
   const total = subtotal + shippingFee;
+
+  // Server-side COD validation against store settings
+  if (paymentMethod === "cod") {
+    const { getCodSettings } = await import("@/lib/settings");
+    const codSettings = await getCodSettings();
+    if (!codSettings.enabled) {
+      return NextResponse.json(
+        { error: "Cash on Delivery is currently unavailable. Please choose Online Payment." },
+        { status: 400 }
+      );
+    }
+    if (codSettings.minAmount && subtotal < codSettings.minAmount) {
+      return NextResponse.json(
+        { error: `Cash on Delivery is only available for orders above ₹${codSettings.minAmount}.` },
+        { status: 400 }
+      );
+    }
+    if (codSettings.maxAmount && subtotal > codSettings.maxAmount) {
+      return NextResponse.json(
+        { error: `Cash on Delivery is only available for orders up to ₹${codSettings.maxAmount}. Please choose Online Payment.` },
+        { status: 400 }
+      );
+    }
+  }
+
   const orderNumber = generateOrderNumber();
 
   // For COD: Status is design_review (order confirmed, payment expected on delivery)

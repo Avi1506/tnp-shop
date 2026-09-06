@@ -146,26 +146,23 @@ export default function CustomizeCanvas({
         canvas.renderAll();
       }
 
-      // 2. Upload to server storage (or Data URI on Vercel)
-      let finalUrl = localUrl;
-      try {
-        const fd = new FormData();
-        fd.append("file", file);
-        fd.append("folder", "customizations");
-        const res = await fetch("/api/upload", { method: "POST", body: fd });
-        const data = await res.json();
-        if (res.ok && data.url) {
-          finalUrl = data.url;
-        }
-      } catch {
-        // Fallback to local URL on server error
+      // 2. Upload to server storage
+      const fd = new FormData();
+      fd.append("file", file);
+      fd.append("folder", "customizations");
+      const res = await fetch("/api/upload", { method: "POST", body: fd });
+      const data = await res.json();
+      
+      if (!res.ok || !data.url) {
+        throw new Error(data.error || "Failed to upload photo to server.");
       }
 
+      const finalUrl = data.url;
       setUploadedUrls((prev) => (config.fields.multipleImages ? [...prev, finalUrl] : [finalUrl]));
       toast.success("Photo added — drag, resize or rotate it to fit.");
     } catch (err) {
       console.error("[upload error]", err);
-      toast.error(err instanceof Error ? err.message : "Could not load photo");
+      toast.error(err instanceof Error ? err.message : "Could not upload photo. Please try again.");
     } finally {
       setUploading(false);
       if (fileInputRef.current) fileInputRef.current.value = "";

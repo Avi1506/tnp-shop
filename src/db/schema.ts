@@ -206,6 +206,8 @@ export const orders = pgTable("orders", {
   customerNote: text("customer_note"),
   razorpayOrderId: varchar("razorpay_order_id", { length: 64 }),
   razorpayPaymentId: varchar("razorpay_payment_id", { length: 64 }),
+  trackingId: varchar("tracking_id", { length: 100 }),
+  trackingUrl: text("tracking_url"),
   createdAt: timestamp("created_at").notNull().defaultNow(),
   updatedAt: timestamp("updated_at").notNull().defaultNow(),
 }, (t) => [uniqueIndex("orders_order_number_idx").on(t.orderNumber)]);
@@ -270,6 +272,12 @@ export const emailLogs = pgTable("email_logs", {
   status: varchar("status", { length: 20 }).notNull().default("sent"), // sent|failed
   error: text("error"),
   createdAt: timestamp("created_at").notNull().defaultNow(),
+});
+
+export const siteSettings = pgTable("site_settings", {
+  key: varchar("key", { length: 60 }).primaryKey(),
+  value: jsonb("value").notNull(),
+  updatedAt: timestamp("updated_at").notNull().defaultNow(),
 });
 
 // ---------------------------------------------------------------------------

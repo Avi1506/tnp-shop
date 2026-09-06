@@ -67,7 +67,7 @@ export default async function ProductPage({ params }: { params: Promise<{ slug: 
               <Truck size={16} className="text-teal" /> Pan India delivery
             </p>
             <p className="flex items-center gap-2">
-              <ShieldCheck size={16} className="text-teal" /> Prepaid orders — COD not available on customized items
+              <ShieldCheck size={16} className="text-teal" /> 100% Quality Guaranteed &amp; Safe Checkout
             </p>
           </div>
 

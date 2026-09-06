@@ -34,5 +34,21 @@ export async function POST(req: NextRequest) {
     role: "customer",
   });
 
+  // Send branded welcome email to newly registered customer
+  try {
+    const { sendEmail, welcomeCustomerEmail } = await import("@/lib/email");
+    await sendEmail({
+      to: email,
+      subject: "Welcome to The Novelty Prints!",
+      event: "customer_registered",
+      html: welcomeCustomerEmail({
+        customerName: parsed.data.name,
+        email,
+      }),
+    });
+  } catch (err) {
+    console.error("[register] Failed to send welcome email:", err);
+  }
+
   return NextResponse.json({ ok: true });
 }
