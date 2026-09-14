@@ -30,7 +30,7 @@ export const metadata: Metadata = {
   },
   description:
     "Made personal. Made memorable. Personalized gifts, custom printing and bulk gifting from The Novelty Prints — Pan India delivery.",
-  metadataBase: new URL(process.env.NEXT_PUBLIC_SITE_URL ?? "http://localhost:3000"),
+  metadataBase: new URL(process.env.NEXT_PUBLIC_SITE_URL ?? "https://thenoveltyprints.com"),
   openGraph: {
     title: "The Novelty Prints",
     description: "Made personal. Made memorable.",
