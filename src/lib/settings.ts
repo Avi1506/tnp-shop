@@ -150,3 +150,60 @@ export async function updateEmailTemplates(templates: Partial<EmailTemplates>): 
 
   return updated;
 }
+
+export interface EmailSettings {
+  emailFrom: string;
+  adminEmail: string;
+  smtpHost?: string;
+  smtpPort?: number;
+  smtpUser?: string;
+  smtpPassword?: string;
+}
+
+export const DEFAULT_EMAIL_SETTINGS: EmailSettings = {
+  emailFrom: process.env.EMAIL_FROM || "The Novelty Prints <thenoveltyprints@gmail.com>",
+  adminEmail: process.env.ADMIN_EMAIL || "thenoveltyprints@gmail.com",
+  smtpHost: process.env.SMTP_HOST || "",
+  smtpPort: Number(process.env.SMTP_PORT || 465),
+  smtpUser: process.env.SMTP_USER || "",
+  smtpPassword: process.env.SMTP_PASSWORD || "",
+};
+
+export async function getEmailSettings(): Promise<EmailSettings> {
+  try {
+    const [row] = await db
+      .select()
+      .from(siteSettings)
+      .where(eq(siteSettings.key, "email_settings"))
+      .limit(1);
+
+    if (row?.value) {
+      return { ...DEFAULT_EMAIL_SETTINGS, ...(row.value as Partial<EmailSettings>) };
+    }
+  } catch (err) {
+    console.error("[settings] Failed to fetch email settings:", err);
+  }
+  return DEFAULT_EMAIL_SETTINGS;
+}
+
+export async function updateEmailSettings(settings: Partial<EmailSettings>): Promise<EmailSettings> {
+  const current = await getEmailSettings();
+  const updated: EmailSettings = { ...current, ...settings };
+
+  await db
+    .insert(siteSettings)
+    .values({
+      key: "email_settings",
+      value: updated,
+      updatedAt: new Date(),
+    })
+    .onConflictDoUpdate({
+      target: siteSettings.key,
+      set: {
+        value: updated,
+        updatedAt: new Date(),
+      },
+    });
+
+  return updated;
+}

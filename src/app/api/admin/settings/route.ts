@@ -1,6 +1,13 @@
 import { NextRequest, NextResponse } from "next/server";
 import { requireAdmin } from "@/lib/admin-guard";
-import { getCodSettings, updateCodSettings, getEmailTemplates, updateEmailTemplates } from "@/lib/settings";
+import {
+  getCodSettings,
+  updateCodSettings,
+  getEmailTemplates,
+  updateEmailTemplates,
+  getEmailSettings,
+  updateEmailSettings,
+} from "@/lib/settings";
 import { z } from "zod";
 
 const codSchema = z.object({
@@ -18,7 +25,8 @@ export async function GET() {
 
   const cod = await getCodSettings();
   const emailTemplates = await getEmailTemplates();
-  return NextResponse.json({ cod, emailTemplates });
+  const emailSettings = await getEmailSettings();
+  return NextResponse.json({ cod, emailTemplates, emailSettings });
 }
 
 export async function PATCH(req: NextRequest) {
@@ -30,6 +38,7 @@ export async function PATCH(req: NextRequest) {
   const body = await req.json().catch(() => null);
   let updatedCod = null;
   let updatedEmailTemplates = null;
+  let updatedEmailSettings = null;
 
   if (body?.cod) {
     const parsedCod = codSchema.safeParse(body.cod);
@@ -46,9 +55,14 @@ export async function PATCH(req: NextRequest) {
     updatedEmailTemplates = await updateEmailTemplates(body.emailTemplates);
   }
 
+  if (body?.emailSettings) {
+    updatedEmailSettings = await updateEmailSettings(body.emailSettings);
+  }
+
   return NextResponse.json({
     ok: true,
     cod: updatedCod || (await getCodSettings()),
     emailTemplates: updatedEmailTemplates || (await getEmailTemplates()),
+    emailSettings: updatedEmailSettings || (await getEmailSettings()),
   });
 }

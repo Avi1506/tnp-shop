@@ -3,16 +3,28 @@ import nodemailer from "nodemailer";
 import { db } from "@/db";
 import { emailLogs } from "@/db/schema";
 
-function getTransport() {
-  if (!process.env.SMTP_HOST || !process.env.SMTP_USER || !process.env.SMTP_PASSWORD) {
+import { getEmailSettings } from "@/lib/settings";
+
+async function getTransport() {
+  const settings = await getEmailSettings();
+  const host = settings.smtpHost || process.env.SMTP_HOST;
+  const user = settings.smtpUser || process.env.SMTP_USER;
+  const pass = settings.smtpPassword || process.env.SMTP_PASSWORD;
+  const port = Number(settings.smtpPort || process.env.SMTP_PORT || 465);
+
+  if (!host || !user || !pass) {
     return null;
   }
-  return nodemailer.createTransport({
-    host: process.env.SMTP_HOST,
-    port: Number(process.env.SMTP_PORT ?? 465),
-    secure: Number(process.env.SMTP_PORT ?? 465) === 465,
-    auth: { user: process.env.SMTP_USER, pass: process.env.SMTP_PASSWORD },
-  });
+  return {
+    transport: nodemailer.createTransport({
+      host,
+      port,
+      secure: port === 465,
+      auth: { user, pass },
+    }),
+    emailFrom: settings.emailFrom || process.env.EMAIL_FROM || "The Novelty Prints <thenoveltyprints@gmail.com>",
+    adminEmail: settings.adminEmail || process.env.ADMIN_EMAIL || "thenoveltyprints@gmail.com",
+  };
 }
 
 export async function sendEmail(opts: {
@@ -22,9 +34,9 @@ export async function sendEmail(opts: {
   event: string;
   orderId?: string;
 }) {
-  const transport = getTransport();
+  const config = await getTransport();
   try {
-    if (!transport) {
+    if (!config) {
       // SMTP not configured yet — log instead of throwing, so the rest of
       // the checkout flow (order creation, payment) still succeeds.
       console.warn(`[email] SMTP not configured — skipped "${opts.subject}" to ${opts.to}`);
@@ -34,12 +46,12 @@ export async function sendEmail(opts: {
         event: opts.event,
         orderId: opts.orderId,
         status: "failed",
-        error: "SMTP not configured",
+        error: "SMTP not configured (Add credentials in Admin Settings)",
       });
       return;
     }
-    await transport.sendMail({
-      from: process.env.EMAIL_FROM ?? "The Novelty Prints <orders@thenoveltyprints.com>",
+    await config.transport.sendMail({
+      from: config.emailFrom,
       to: opts.to,
       subject: opts.subject,
       html: opts.html,

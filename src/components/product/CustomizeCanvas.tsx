@@ -294,26 +294,25 @@ export default function CustomizeCanvas({
     <div className="grid md:grid-cols-[1fr_380px] gap-6 md:gap-10">
       {/* Canvas */}
       <div className="w-full">
-        <div className="w-full max-w-[520px] mx-auto rounded-2xl border border-border bg-offwhite p-2 sm:p-4 flex items-center justify-center overflow-hidden">
+        <div className="w-full max-w-[520px] mx-auto rounded-2xl border border-border bg-offwhite p-2 sm:p-4 flex items-center justify-center overflow-hidden shadow-xs">
           <div className="relative w-full aspect-square flex items-center justify-center [&_.canvas-container]:!w-full [&_.canvas-container]:!h-full [&_canvas]:!w-full [&_canvas]:!h-full [&_canvas]:!max-w-full">
-            <canvas ref={canvasElRef} className="rounded-lg shadow-inner" />
+            <canvas ref={canvasElRef} className="rounded-lg shadow-inner touch-none" />
           </div>
         </div>
-        <p className="text-xs text-navy/60 mt-3 text-center px-2">
-          The dashed box shows the printable area. Drag, resize (corner handles) or rotate your photo and text
-          to fit.
+        <p className="text-[11px] sm:text-xs text-navy/60 mt-3 text-center px-2">
+          The dashed box shows the printable area. Touch/drag, scale (corner handles) or rotate your photo and text to fit.
         </p>
-        <div className="flex justify-center gap-4 mt-4">
+        <div className="flex flex-wrap justify-center gap-2 sm:gap-4 mt-4">
           <button
             onClick={handleDeleteSelected}
             disabled={!hasSelection}
-            className="text-xs font-semibold py-2 px-3 rounded-lg border border-border flex items-center gap-1.5 text-navy/80 hover:text-red hover:border-red/40 disabled:opacity-30 disabled:cursor-not-allowed transition"
+            className="text-xs font-semibold py-2.5 px-3.5 rounded-xl border border-border flex items-center gap-1.5 text-navy/80 hover:text-red hover:border-red/40 disabled:opacity-30 disabled:cursor-not-allowed transition bg-white shadow-xs"
           >
             <Trash2 size={14} /> Delete Selected
           </button>
           <button
             onClick={handleReset}
-            className="text-xs font-semibold py-2 px-3 rounded-lg border border-border flex items-center gap-1.5 text-navy/80 hover:text-red hover:border-red/40 transition"
+            className="text-xs font-semibold py-2.5 px-3.5 rounded-xl border border-border flex items-center gap-1.5 text-navy/80 hover:text-red hover:border-red/40 transition bg-white shadow-xs"
           >
             <RotateCcw size={14} /> Reset All
           </button>

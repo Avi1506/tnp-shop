@@ -43,11 +43,11 @@ export default function AddressesPage() {
 
   return (
     <div>
-      <div className="flex items-center justify-between mb-8">
-        <h1 className="text-2xl font-semibold text-navy">Saved Addresses</h1>
+      <div className="flex flex-col sm:flex-row sm:items-center justify-between gap-3 mb-6 sm:mb-8">
+        <h1 className="text-xl sm:text-2xl font-semibold text-navy">Saved Addresses</h1>
         <button
           onClick={() => setShowForm(true)}
-          className="flex items-center gap-2 bg-gold text-navy-dark font-semibold text-sm px-4 py-2.5 rounded-lg hover:brightness-110"
+          className="flex items-center justify-center gap-2 bg-gold text-navy-dark font-semibold text-xs sm:text-sm px-4 py-2.5 rounded-xl hover:brightness-110 shadow-xs"
         >
           <Plus size={16} /> Add Address
         </button>

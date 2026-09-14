@@ -1,7 +1,7 @@
 "use client";
 
 import { useEffect, useState } from "react";
-import { Loader2, Save, CheckCircle2, AlertCircle, Mail, Code } from "lucide-react";
+import { Loader2, Save, AlertCircle, Mail, Code, Server, Key, Send } from "lucide-react";
 import toast from "react-hot-toast";
 
 interface CodSettings {
@@ -22,6 +22,15 @@ interface EmailTemplates {
   orderShipped: EmailTemplateItem;
   orderDelivered: EmailTemplateItem;
   adminAlert: EmailTemplateItem;
+}
+
+interface EmailSettings {
+  emailFrom: string;
+  adminEmail: string;
+  smtpHost?: string;
+  smtpPort?: number;
+  smtpUser?: string;
+  smtpPassword?: string;
 }
 
 const TEMPLATE_KEYS: { key: keyof EmailTemplates; name: string; description: string; tags: string[] }[] = [
@@ -69,6 +78,15 @@ export default function AdminSettingsPage() {
     note: "Pay cash upon delivery. Please keep exact change ready.",
   });
 
+  const [emailSettings, setEmailSettings] = useState<EmailSettings>({
+    emailFrom: "The Novelty Prints <thenoveltyprints@gmail.com>",
+    adminEmail: "thenoveltyprints@gmail.com",
+    smtpHost: "",
+    smtpPort: 465,
+    smtpUser: "",
+    smtpPassword: "",
+  });
+
   const [emailTemplates, setEmailTemplates] = useState<EmailTemplates>({
     welcome: {
       subject: "Welcome to The Novelty Prints!",
@@ -100,6 +118,7 @@ export default function AdminSettingsPage() {
           const data = await res.json();
           if (data.cod) setCod(data.cod);
           if (data.emailTemplates) setEmailTemplates(data.emailTemplates);
+          if (data.emailSettings) setEmailSettings((prev) => ({ ...prev, ...data.emailSettings }));
         }
       } catch (err) {
         console.error("Failed to load settings:", err);
@@ -118,13 +137,13 @@ export default function AdminSettingsPage() {
       const res = await fetch("/api/admin/settings", {
         method: "PATCH",
         headers: { "Content-Type": "application/json" },
-        body: JSON.stringify({ cod, emailTemplates }),
+        body: JSON.stringify({ cod, emailTemplates, emailSettings }),
       });
       const data = await res.json();
       if (!res.ok) {
         throw new Error(data.error || "Failed to update settings");
       }
-      toast.success("Settings & Email Templates saved successfully!");
+      toast.success("All Settings & Email Configurations saved!");
     } catch (err) {
       toast.error(err instanceof Error ? err.message : "Failed to save settings");
     } finally {
@@ -143,9 +162,9 @@ export default function AdminSettingsPage() {
   return (
     <div className="max-w-4xl pb-16">
       <div className="mb-8">
-        <h1 className="text-2xl font-semibold text-navy">Store Settings &amp; Email Templates</h1>
+        <h1 className="text-2xl font-semibold text-navy">Store Settings &amp; Email Configurations</h1>
         <p className="text-sm text-navy/60 mt-1">
-          Manage payment options, Cash on Delivery limits, and edit transactional email templates.
+          Manage COD payment rules, email sender addresses, SMTP server credentials, and templates.
         </p>
       </div>
 
@@ -226,6 +245,119 @@ export default function AdminSettingsPage() {
               />
               <p className="text-[11px] text-navy/40 mt-1">Displayed to customer when choosing COD at checkout.</p>
             </div>
+          </div>
+        </div>
+
+        {/* Email Addresses & SMTP Credentials Section */}
+        <div className="bg-white rounded-2xl border border-border p-6 shadow-xs space-y-5">
+          <div className="flex items-center gap-2 border-b border-border pb-4">
+            <Server className="text-gold shrink-0" size={20} />
+            <div>
+              <h2 className="text-base font-semibold text-navy">Email Sender &amp; SMTP Server Credentials</h2>
+              <p className="text-xs text-navy/60 mt-0.5">
+                Configure your Sender (From) Email, Admin Alert Email, and SMTP credentials for delivering live emails.
+              </p>
+            </div>
+          </div>
+
+          <div className="grid sm:grid-cols-2 gap-4">
+            <div>
+              <label className="text-xs font-semibold text-navy/60 uppercase tracking-wide">
+                Sender Email ("From" Address shown to customers)
+              </label>
+              <input
+                type="text"
+                value={emailSettings.emailFrom}
+                onChange={(e) => setEmailSettings((prev) => ({ ...prev, emailFrom: e.target.value }))}
+                placeholder="The Novelty Prints <thenoveltyprints@gmail.com>"
+                className="w-full mt-1.5 text-sm border border-border rounded-lg px-3 py-2.5 outline-none focus:border-gold"
+              />
+              <p className="text-[11px] text-navy/40 mt-1">
+                Name &amp; address customer sees in their inbox header.
+              </p>
+            </div>
+
+            <div>
+              <label className="text-xs font-semibold text-navy/60 uppercase tracking-wide">
+                Admin Notification Email (Recipient)
+              </label>
+              <input
+                type="email"
+                value={emailSettings.adminEmail}
+                onChange={(e) => setEmailSettings((prev) => ({ ...prev, adminEmail: e.target.value }))}
+                placeholder="thenoveltyprints@gmail.com"
+                className="w-full mt-1.5 text-sm border border-border rounded-lg px-3 py-2.5 outline-none focus:border-gold"
+              />
+              <p className="text-[11px] text-navy/40 mt-1">
+                Where admin receives new order alerts &amp; inquiries.
+              </p>
+            </div>
+          </div>
+
+          <div className="pt-3 border-t border-border/60">
+            <h3 className="text-xs font-semibold text-navy uppercase tracking-wider mb-3 flex items-center gap-1.5">
+              <Key size={14} className="text-gold" /> SMTP Dispatch Credentials
+            </h3>
+            <div className="grid sm:grid-cols-2 gap-4">
+              <div>
+                <label className="text-xs font-semibold text-navy/60 uppercase tracking-wide">
+                  SMTP Host Server
+                </label>
+                <input
+                  type="text"
+                  value={emailSettings.smtpHost ?? ""}
+                  onChange={(e) => setEmailSettings((prev) => ({ ...prev, smtpHost: e.target.value }))}
+                  placeholder="e.g. smtp.gmail.com or smtp.resend.com"
+                  className="w-full mt-1.5 text-sm border border-border rounded-lg px-3 py-2.5 outline-none focus:border-gold"
+                />
+              </div>
+
+              <div>
+                <label className="text-xs font-semibold text-navy/60 uppercase tracking-wide">
+                  SMTP Port
+                </label>
+                <input
+                  type="number"
+                  value={emailSettings.smtpPort ?? 465}
+                  onChange={(e) => setEmailSettings((prev) => ({ ...prev, smtpPort: parseInt(e.target.value) || 465 }))}
+                  placeholder="465"
+                  className="w-full mt-1.5 text-sm border border-border rounded-lg px-3 py-2.5 outline-none focus:border-gold"
+                />
+              </div>
+
+              <div>
+                <label className="text-xs font-semibold text-navy/60 uppercase tracking-wide">
+                  SMTP Username / Email
+                </label>
+                <input
+                  type="text"
+                  value={emailSettings.smtpUser ?? ""}
+                  onChange={(e) => setEmailSettings((prev) => ({ ...prev, smtpUser: e.target.value }))}
+                  placeholder="e.g. thenoveltyprints@gmail.com or resend"
+                  className="w-full mt-1.5 text-sm border border-border rounded-lg px-3 py-2.5 outline-none focus:border-gold"
+                />
+              </div>
+
+              <div>
+                <label className="text-xs font-semibold text-navy/60 uppercase tracking-wide">
+                  SMTP Password / API Key
+                </label>
+                <input
+                  type="password"
+                  value={emailSettings.smtpPassword ?? ""}
+                  onChange={(e) => setEmailSettings((prev) => ({ ...prev, smtpPassword: e.target.value }))}
+                  placeholder="Gmail 16-digit App Password or Resend API Key"
+                  className="w-full mt-1.5 text-sm border border-border rounded-lg px-3 py-2.5 outline-none focus:border-gold font-mono"
+                />
+              </div>
+            </div>
+          </div>
+
+          <div className="p-3 rounded-xl bg-gold/10 border border-gold/30 flex items-start gap-2.5 text-xs text-navy">
+            <AlertCircle size={16} className="text-gold shrink-0 mt-0.5" />
+            <p>
+              <strong>Tip</strong>: For <strong>Gmail</strong>, use Host: <code className="bg-white/80 px-1 py-0.5 rounded font-mono">smtp.gmail.com</code>, Port: <code className="bg-white/80 px-1 py-0.5 rounded font-mono">465</code>, and generate a 16-letter App Password at <em>myaccount.google.com/security</em>.
+            </p>
           </div>
         </div>
 
@@ -338,14 +470,6 @@ export default function AdminSettingsPage() {
               </div>
             );
           })()}
-
-          {/* SMTP Info Note */}
-          <div className="p-3 rounded-xl bg-gold/10 border border-gold/30 flex items-start gap-2.5 text-xs text-navy">
-            <AlertCircle size={16} className="text-gold shrink-0 mt-0.5" />
-            <p>
-              Emails automatically render inside your branded header &amp; footer shell. When sent, placeholders are replaced with actual order data.
-            </p>
-          </div>
         </div>
 
         <div className="flex justify-end">
@@ -355,7 +479,7 @@ export default function AdminSettingsPage() {
             className="bg-gold text-navy font-semibold px-6 py-3 rounded-full hover:brightness-110 transition flex items-center gap-2 shadow-xs disabled:opacity-60"
           >
             {saving ? <Loader2 size={16} className="animate-spin" /> : <Save size={16} />}
-            Save Settings &amp; Email Templates
+            Save All Configurations
           </button>
         </div>
       </form>
