@@ -22,6 +22,7 @@ type ProductData = {
   isActive: boolean;
   isFeatured: boolean;
   isBestseller: boolean;
+  codAvailable: boolean;
   customizable: boolean;
   customization: CustomizationConfig | null;
 };
@@ -65,6 +66,7 @@ export default function ProductForm({
     isActive: initial?.isActive ?? true,
     isFeatured: initial?.isFeatured ?? false,
     isBestseller: initial?.isBestseller ?? false,
+    codAvailable: initial?.codAvailable ?? true,
     customizable: initial?.customizable ?? false,
     customization: initial?.customization ?? null,
   });
@@ -230,6 +232,7 @@ export default function ProductForm({
             { key: "isActive", label: "Active (visible on site)" },
             { key: "isFeatured", label: "Featured" },
             { key: "isBestseller", label: "Bestseller" },
+            { key: "codAvailable", label: "Allow Cash on Delivery (COD)" },
             { key: "isQuoteOnly", label: "Custom Quote only (bulk item)" },
           ].map((f) => (
             <label key={f.key} className="flex items-center gap-2 text-sm text-navy">

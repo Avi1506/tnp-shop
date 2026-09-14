@@ -89,6 +89,22 @@ function shell(title: string, bodyHtml: string) {
 const row = (label: string, value: string) =>
   `<tr><td style="padding:4px 0;color:#8A8577;font-size:13px;width:140px;">${label}</td><td style="padding:4px 0;color:#1B2A4A;font-size:13px;font-weight:600;">${value}</td></tr>`;
 
+export function compileEmailTemplate(template: { subject: string; body: string }, vars: Record<string, string>) {
+  let subject = template.subject;
+  let body = template.body;
+
+  for (const [key, val] of Object.entries(vars)) {
+    const regex = new RegExp(`\\{${key}\\}`, "g");
+    subject = subject.replace(regex, val ?? "");
+    body = body.replace(regex, val ?? "");
+  }
+
+  return {
+    subject,
+    html: shell(subject, body),
+  };
+}
+
 export function customerOrderConfirmedEmail(params: {
   orderNumber: string;
   customerName: string;

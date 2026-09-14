@@ -111,6 +111,7 @@ export const products = pgTable("products", {
   isActive: boolean("is_active").notNull().default(true),
   isFeatured: boolean("is_featured").notNull().default(false),
   isBestseller: boolean("is_bestseller").notNull().default(false),
+  codAvailable: boolean("cod_available").notNull().default(true),
   customizable: boolean("customizable").notNull().default(false),
   customization: jsonb("customization").$type<CustomizationConfig | null>(),
   tags: jsonb("tags").$type<string[]>().notNull().default([]),

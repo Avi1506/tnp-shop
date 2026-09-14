@@ -1,6 +1,6 @@
 import { NextRequest, NextResponse } from "next/server";
 import { requireAdmin } from "@/lib/admin-guard";
-import { getCodSettings, updateCodSettings } from "@/lib/settings";
+import { getCodSettings, updateCodSettings, getEmailTemplates, updateEmailTemplates } from "@/lib/settings";
 import { z } from "zod";
 
 const codSchema = z.object({
@@ -17,7 +17,8 @@ export async function GET() {
   }
 
   const cod = await getCodSettings();
-  return NextResponse.json({ cod });
+  const emailTemplates = await getEmailTemplates();
+  return NextResponse.json({ cod, emailTemplates });
 }
 
 export async function PATCH(req: NextRequest) {
@@ -27,14 +28,27 @@ export async function PATCH(req: NextRequest) {
   }
 
   const body = await req.json().catch(() => null);
-  const parsed = codSchema.safeParse(body?.cod);
-  if (!parsed.success) {
-    return NextResponse.json(
-      { error: parsed.error.issues[0]?.message || "Invalid settings data" },
-      { status: 400 }
-    );
+  let updatedCod = null;
+  let updatedEmailTemplates = null;
+
+  if (body?.cod) {
+    const parsedCod = codSchema.safeParse(body.cod);
+    if (!parsedCod.success) {
+      return NextResponse.json(
+        { error: parsedCod.error.issues[0]?.message || "Invalid COD settings data" },
+        { status: 400 }
+      );
+    }
+    updatedCod = await updateCodSettings(parsedCod.data);
   }
 
-  const updated = await updateCodSettings(parsed.data);
-  return NextResponse.json({ ok: true, cod: updated });
+  if (body?.emailTemplates) {
+    updatedEmailTemplates = await updateEmailTemplates(body.emailTemplates);
+  }
+
+  return NextResponse.json({
+    ok: true,
+    cod: updatedCod || (await getCodSettings()),
+    emailTemplates: updatedEmailTemplates || (await getEmailTemplates()),
+  });
 }

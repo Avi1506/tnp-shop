@@ -63,6 +63,7 @@ export async function POST(req: NextRequest) {
       isActive: body.isActive ?? true,
       isFeatured: !!body.isFeatured,
       isBestseller: !!body.isBestseller,
+      codAvailable: body.codAvailable ?? true,
       customizable: !!body.customizable,
       customization: body.customization ?? null,
       tags: body.tags ?? [],

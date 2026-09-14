@@ -42,7 +42,9 @@ export async function saveUpload(file: File, folder: string): Promise<string> {
 
 // ---------------------------------------------------------------------------
 // Local disk driver — fine for development. On serverless hosts (Vercel)
-// with read-only filesystems, informs the caller to configure S3/R2 storage.
+// ---------------------------------------------------------------------------
+// Local disk driver — fine for development. On serverless hosts (Vercel)
+// with read-only filesystems, falls back to Data URI if S3 is not configured.
 // ---------------------------------------------------------------------------
 async function saveToLocalDisk(key: string, buffer: Buffer, detectedMime: string): Promise<string> {
   try {
@@ -52,13 +54,13 @@ async function saveToLocalDisk(key: string, buffer: Buffer, detectedMime: string
     await writeFile(fullPath, buffer);
     return `/uploads/${key}`;
   } catch (err: unknown) {
-    console.error("[storage] Local disk save error:", err);
+    console.warn("[storage] Local disk save unavailable, using Data URI fallback:", err);
     if (process.env.VERCEL || (err && typeof err === "object" && "code" in err && err.code === "EROFS")) {
-      throw new UploadError(
-        "Local filesystem is read-only on serverless deployment. Please configure S3/Cloudflare R2 storage in environment variables."
-      );
+      // Fall back to Data URI so uploads work out-of-the-box on serverless
+      return `data:${detectedMime};base64,${buffer.toString("base64")}`;
     }
-    throw new UploadError("Could not write file to disk. Please check storage permissions.");
+    // Also fallback if any disk write error occurs
+    return `data:${detectedMime};base64,${buffer.toString("base64")}`;
   }
 }
 

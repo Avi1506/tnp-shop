@@ -25,7 +25,7 @@ export async function PATCH(req: NextRequest, { params }: { params: Promise<{ id
   const allowedFields = [
     "name", "slug", "categoryId", "shortDescription", "description", "images",
     "startingPrice", "salePrice", "isQuoteOnly", "stock", "isActive", "isFeatured",
-    "isBestseller", "customizable", "customization", "tags",
+    "isBestseller", "codAvailable", "customizable", "customization", "tags",
   ] as const;
   for (const field of allowedFields) {
     if (field in body) (updates as Record<string, unknown>)[field] = body[field];

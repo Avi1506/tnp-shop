@@ -69,10 +69,17 @@ export async function POST(req: NextRequest) {
     customization: (typeof items)[number]["customization"];
   }[] = [];
 
+  let hasNonCodProduct = false;
+  let nonCodProductName = "";
+
   for (const item of items) {
     const [product] = await db.select().from(products).where(eq(products.id, item.productId)).limit(1);
     if (!product || !product.isActive) {
       return NextResponse.json({ error: `A product in your cart is no longer available.` }, { status: 400 });
+    }
+    if (product.codAvailable === false) {
+      hasNonCodProduct = true;
+      nonCodProductName = product.name;
     }
     if (product.customizable && product.customization?.fields && (product.customization.fields.imageUpload || product.customization.fields.text)) {
       if (!item.customization?.approved) {
@@ -99,8 +106,15 @@ export async function POST(req: NextRequest) {
   const shippingFee = 0;
   const total = subtotal + shippingFee;
 
-  // Server-side COD validation against store settings
+  // Server-side COD validation against store settings & product flags
   if (paymentMethod === "cod") {
+    if (hasNonCodProduct) {
+      return NextResponse.json(
+        { error: `Cash on Delivery is unavailable because "${nonCodProductName}" requires prepaid payment.` },
+        { status: 400 }
+      );
+    }
+
     const { getCodSettings } = await import("@/lib/settings");
     const codSettings = await getCodSettings();
     if (!codSettings.enabled) {
