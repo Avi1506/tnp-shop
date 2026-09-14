@@ -71,7 +71,10 @@ function LoginForm() {
 
       <p className="text-sm text-navy/60 mt-6 text-center">
         New here?{" "}
-        <Link href="/register" className="text-gold font-semibold">
+        <Link
+          href={`/register${callbackUrl !== "/account" ? `?callbackUrl=${encodeURIComponent(callbackUrl)}` : ""}`}
+          className="text-gold font-semibold"
+        >
           Create an account
         </Link>
       </p>

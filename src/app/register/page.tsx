@@ -1,16 +1,18 @@
 "use client";
 
-import { useState } from "react";
+import { useState, Suspense } from "react";
 import { signIn } from "next-auth/react";
-import { useRouter } from "next/navigation";
+import { useRouter, useSearchParams } from "next/navigation";
 import Link from "next/link";
 import { Loader2 } from "lucide-react";
 import toast from "react-hot-toast";
 
-export default function RegisterPage() {
+function RegisterForm() {
   const [form, setForm] = useState({ name: "", email: "", phone: "", password: "" });
   const [loading, setLoading] = useState(false);
   const router = useRouter();
+  const params = useSearchParams();
+  const callbackUrl = params.get("callbackUrl") || "/account";
 
   async function handleSubmit(e: React.FormEvent) {
     e.preventDefault();
@@ -32,7 +34,7 @@ export default function RegisterPage() {
       if (signInRes?.error) throw new Error("Account created — please log in.");
 
       toast.success("Welcome to The Novelty Prints!");
-      router.push("/account");
+      router.push(callbackUrl);
       router.refresh();
     } catch (err) {
       toast.error(err instanceof Error ? err.message : "Something went wrong");
@@ -71,16 +73,27 @@ export default function RegisterPage() {
           className="w-full bg-gold text-navy-dark font-semibold py-3 rounded-full hover:brightness-110 transition flex items-center justify-center gap-2 disabled:opacity-60"
         >
           {loading && <Loader2 size={16} className="animate-spin" />}
-          Create Account
+          Create Account &amp; Proceed
         </button>
       </form>
 
       <p className="text-sm text-navy/60 mt-6 text-center">
         Already have an account?{" "}
-        <Link href="/login" className="text-gold font-semibold">
+        <Link
+          href={`/login${callbackUrl !== "/account" ? `?callbackUrl=${encodeURIComponent(callbackUrl)}` : ""}`}
+          className="text-gold font-semibold"
+        >
           Log in
         </Link>
       </p>
     </div>
+  );
+}
+
+export default function RegisterPage() {
+  return (
+    <Suspense fallback={null}>
+      <RegisterForm />
+    </Suspense>
   );
 }
