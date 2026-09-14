@@ -3,6 +3,7 @@
 import Link from "next/link";
 import { usePathname } from "next/navigation";
 import { Package, MapPin, Heart, User, LayoutDashboard } from "lucide-react";
+import CustomerSignOutButton from "./CustomerSignOutButton";
 
 const links = [
   { href: "/account", label: "Dashboard", icon: LayoutDashboard },
@@ -34,6 +35,9 @@ export default function AccountNav() {
           </Link>
         );
       })}
+      <div className="md:mt-2 md:pt-2 md:border-t md:border-border shrink-0">
+        <CustomerSignOutButton />
+      </div>
     </nav>
   );
 }

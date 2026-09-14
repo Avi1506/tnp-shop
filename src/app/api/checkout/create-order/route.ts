@@ -1,8 +1,8 @@
 import { NextRequest, NextResponse } from "next/server";
 import { auth } from "@/lib/auth";
 import { db } from "@/db";
-import { orders, orderItems, products } from "@/db/schema";
-import { eq } from "drizzle-orm";
+import { orders, orderItems, products, addresses } from "@/db/schema";
+import { eq, and } from "drizzle-orm";
 import { generateOrderNumber } from "@/lib/order-number";
 import { getRazorpay } from "@/lib/razorpay";
 import { formatINR } from "@/lib/format";
@@ -171,6 +171,46 @@ export async function POST(req: NextRequest) {
       customization: it.customization,
     }))
   );
+
+  // Auto-save shipping address to customer's address book (if not already saved)
+  try {
+    const existingAddresses = await db
+      .select()
+      .from(addresses)
+      .where(
+        and(
+          eq(addresses.userId, session.user.id),
+          eq(addresses.pincode, address.pincode),
+          eq(addresses.phone, address.phone),
+          eq(addresses.line1, address.line1)
+        )
+      )
+      .limit(1);
+
+    if (existingAddresses.length === 0) {
+      // Check if this is the user's first address (make it default)
+      const allAddresses = await db
+        .select({ id: addresses.id })
+        .from(addresses)
+        .where(eq(addresses.userId, session.user.id));
+
+      await db.insert(addresses).values({
+        userId: session.user.id,
+        label: "Order",
+        fullName: address.fullName,
+        phone: address.phone,
+        line1: address.line1,
+        line2: address.line2 ?? null,
+        landmark: address.landmark ?? null,
+        city: address.city,
+        state: address.state,
+        pincode: address.pincode,
+        isDefault: allAddresses.length === 0,
+      });
+    }
+  } catch {
+    // Non-critical — don't fail the order if address save fails
+  }
 
   // --- CASH ON DELIVERY (COD) FLOW ---
   if (paymentMethod === "cod") {
