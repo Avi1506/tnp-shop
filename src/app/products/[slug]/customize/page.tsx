@@ -12,7 +12,7 @@ export default async function CustomizeProductPage({ params }: { params: Promise
   if (!product || !product.isActive || !product.customizable || !product.customization) notFound();
 
   return (
-    <div className="container-page py-6 sm:py-10 md:py-14">
+    <div className="container-page py-6 sm:py-10 md:py-14 overflow-x-hidden">
       <p className="text-gold text-xs font-semibold tracking-widest uppercase mb-1 sm:mb-2">Live Preview</p>
       <h1 className="text-xl sm:text-2xl md:text-3xl font-semibold text-navy mb-6 sm:mb-8">Customize Your {product.name}</h1>
       <CustomizeCanvas

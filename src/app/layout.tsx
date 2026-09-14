@@ -31,6 +31,10 @@ export const metadata: Metadata = {
   description:
     "Made personal. Made memorable. Personalized gifts, custom printing and bulk gifting from The Novelty Prints — Pan India delivery.",
   metadataBase: new URL(process.env.NEXT_PUBLIC_SITE_URL ?? "https://thenoveltyprints.com"),
+  icons: {
+    icon: "/favicon.ico",
+    shortcut: "/favicon.ico",
+  },
   openGraph: {
     title: "The Novelty Prints",
     description: "Made personal. Made memorable.",
@@ -42,7 +46,7 @@ export const metadata: Metadata = {
 export default function RootLayout({ children }: LayoutProps<"/">) {
   return (
     <html lang="en" className={`${poppins.variable} ${lora.variable} h-full antialiased`}>
-      <body className="min-h-full flex flex-col bg-white text-navy">
+      <body className="min-h-full flex flex-col bg-white text-navy overflow-x-hidden">
         <SessionProviderWrapper>
           <CartProvider>
             <Navbar />

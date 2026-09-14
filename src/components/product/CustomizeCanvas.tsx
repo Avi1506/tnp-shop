@@ -291,7 +291,7 @@ export default function CustomizeCanvas({
   }
 
   return (
-    <div className="grid md:grid-cols-[1fr_380px] gap-6 md:gap-10">
+    <div className="flex flex-col md:grid md:grid-cols-[1fr_380px] gap-6 md:gap-10 w-full overflow-x-hidden">
       {/* Canvas */}
       <div className="w-full">
         <div className="w-full max-w-[520px] mx-auto rounded-2xl border border-border bg-offwhite p-2 sm:p-4 flex items-center justify-center overflow-hidden shadow-xs">
