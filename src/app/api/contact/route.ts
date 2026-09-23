@@ -15,7 +15,7 @@ export async function POST(req: NextRequest) {
   }
 
   await sendEmail({
-    to: process.env.ADMIN_EMAIL ?? "admin@thenoveltyprints.com",
+    to: process.env.ADMIN_EMAIL ?? "thenoveltyprints@gmail.com",
     subject: `New message from ${parsed.data.name}`,
     event: "contact_message",
     html: `<div style="font-family:sans-serif;">

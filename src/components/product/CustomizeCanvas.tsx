@@ -32,6 +32,7 @@ export default function CustomizeCanvas({
 }) {
   const canvasElRef = useRef<HTMLCanvasElement>(null);
   const fabricRef = useRef<fabric.Canvas | null>(null);
+  const guideRectRef = useRef<fabric.Rect | null>(null);
   const fileInputRef = useRef<HTMLInputElement>(null);
 
   const [uploading, setUploading] = useState(false);
@@ -44,9 +45,20 @@ export default function CustomizeCanvas({
   const [approved, setApproved] = useState(false);
   const [submitting, setSubmitting] = useState(false);
   const [hasSelection, setHasSelection] = useState(false);
+  const [hasUploadedPhoto, setHasUploadedPhoto] = useState(false);
 
   const { addLine } = useCart();
   const router = useRouter();
+
+  const printAreaBox = useCallback(() => {
+    const pa = config.printArea;
+    return {
+      left: (pa.xPct / 100) * CANVAS_SIZE,
+      top: (pa.yPct / 100) * CANVAS_SIZE,
+      width: (pa.widthPct / 100) * CANVAS_SIZE,
+      height: (pa.heightPct / 100) * CANVAS_SIZE,
+    };
+  }, [config.printArea]);
 
   // ---- init canvas -------------------------------------------------------
   useEffect(() => {
@@ -89,6 +101,7 @@ export default function CustomizeCanvas({
         selectable: false,
         evented: false,
       });
+      guideRectRef.current = rect;
       canvas.add(rect);
       canvas.renderAll();
     });
@@ -106,17 +119,7 @@ export default function CustomizeCanvas({
     // eslint-disable-next-line react-hooks/exhaustive-deps
   }, []);
 
-  const printAreaBox = useCallback(() => {
-    const pa = config.printArea;
-    return {
-      left: (pa.xPct / 100) * CANVAS_SIZE,
-      top: (pa.yPct / 100) * CANVAS_SIZE,
-      width: (pa.widthPct / 100) * CANVAS_SIZE,
-      height: (pa.heightPct / 100) * CANVAS_SIZE,
-    };
-  }, [config.printArea]);
-
-  // ---- upload + place photo ---------------------------------------------
+  // ---- upload + place or replace photo -----------------------------------
   async function handleFileChange(e: React.ChangeEvent<HTMLInputElement>) {
     const file = e.target.files?.[0];
     if (!file) return;
@@ -127,6 +130,16 @@ export default function CustomizeCanvas({
       localUrl = URL.createObjectURL(file);
       const canvas = fabricRef.current;
       if (canvas) {
+        // If single image mode, remove existing custom images to cleanly replace design
+        if (!config.fields.multipleImages) {
+          const objects = canvas.getObjects();
+          objects.forEach((obj) => {
+            if ((obj as unknown as { isCustomImage?: boolean }).isCustomImage) {
+              canvas.remove(obj);
+            }
+          });
+        }
+
         const img = await fabric.FabricImage.fromURL(localUrl, { crossOrigin: "anonymous" });
         const box = printAreaBox();
         const scale = Math.min(box.width / (img.width ?? 1), box.height / (img.height ?? 1));
@@ -141,9 +154,11 @@ export default function CustomizeCanvas({
           cornerStyle: "circle",
           transparentCorners: false,
         });
+        (img as unknown as { isCustomImage?: boolean }).isCustomImage = true;
         canvas.add(img);
         canvas.setActiveObject(img);
         canvas.renderAll();
+        setHasUploadedPhoto(true);
       }
 
       // 2. Upload to server storage
@@ -159,7 +174,7 @@ export default function CustomizeCanvas({
 
       const finalUrl = data.url;
       setUploadedUrls((prev) => (config.fields.multipleImages ? [...prev, finalUrl] : [finalUrl]));
-      toast.success("Photo added — drag, resize or rotate it to fit.");
+      toast.success("Design updated! Drag, resize or rotate to fit perfectly.");
     } catch (err) {
       console.error("[upload error]", err);
       toast.error(err instanceof Error ? err.message : "Could not upload photo. Please try again.");
@@ -167,6 +182,45 @@ export default function CustomizeCanvas({
       setUploading(false);
       if (fileInputRef.current) fileInputRef.current.value = "";
     }
+  }
+
+  // ---- fit/center active or custom image ----------------------------------
+  function handleFitImage() {
+    const canvas = fabricRef.current;
+    if (!canvas) return;
+    const box = printAreaBox();
+    const active = canvas.getActiveObject() || canvas.getObjects().find((o) => (o as unknown as { isCustomImage?: boolean }).isCustomImage);
+    if (active && (active.type === "image" || (active as unknown as { isCustomImage?: boolean }).isCustomImage)) {
+      const scale = Math.min(box.width / (active.width ?? 1), box.height / (active.height ?? 1));
+      active.set({
+        left: box.left + box.width / 2,
+        top: box.top + box.height / 2,
+        originX: "center",
+        originY: "center",
+        scaleX: scale,
+        scaleY: scale,
+        angle: 0,
+      });
+      canvas.setActiveObject(active);
+      canvas.renderAll();
+      toast.success("Photo fitted to print area");
+    }
+  }
+
+  function handleRemovePhoto() {
+    const canvas = fabricRef.current;
+    if (!canvas) return;
+    const objects = canvas.getObjects();
+    objects.forEach((obj) => {
+      if ((obj as unknown as { isCustomImage?: boolean }).isCustomImage) {
+        canvas.remove(obj);
+      }
+    });
+    canvas.discardActiveObject();
+    canvas.renderAll();
+    setUploadedUrls([]);
+    setHasUploadedPhoto(false);
+    toast.success("Photo removed");
   }
 
   // ---- add / update text --------------------------------------------------
@@ -211,6 +265,10 @@ export default function CustomizeCanvas({
     const canvas = fabricRef.current;
     const obj = canvas?.getActiveObject();
     if (obj && canvas) {
+      if ((obj as unknown as { isCustomImage?: boolean }).isCustomImage) {
+        setHasUploadedPhoto(false);
+        setUploadedUrls([]);
+      }
       canvas.remove(obj);
       canvas.discardActiveObject();
       canvas.renderAll();
@@ -226,6 +284,7 @@ export default function CustomizeCanvas({
     canvas.discardActiveObject();
     canvas.renderAll();
     setUploadedUrls([]);
+    setHasUploadedPhoto(false);
     setTextValue("");
     setApproved(false);
   }
@@ -245,7 +304,21 @@ export default function CustomizeCanvas({
 
     setSubmitting(true);
     try {
-      const dataUrl = canvas.toDataURL({ format: "png", quality: 0.9, multiplier: 1.5 });
+      // Temporarily hide guide border to generate clean realistic finished preview
+      if (guideRectRef.current) {
+        guideRectRef.current.set({ opacity: 0 });
+      }
+      canvas.discardActiveObject();
+      canvas.renderAll();
+
+      const dataUrl = canvas.toDataURL({ format: "png", quality: 0.95, multiplier: 1.5 });
+
+      // Restore guide border
+      if (guideRectRef.current) {
+        guideRectRef.current.set({ opacity: 1 });
+      }
+      canvas.renderAll();
+
       let previewImageUrl = dataUrl;
 
       try {
@@ -328,9 +401,15 @@ export default function CustomizeCanvas({
 
         {config.fields.imageUpload && (
           <div>
-            <p className="text-xs font-semibold text-navy/60 uppercase tracking-wide mb-2">
-              Upload Your Photo
-            </p>
+            <div className="flex items-center justify-between mb-2">
+              <p className="text-xs font-semibold text-navy/60 uppercase tracking-wide">
+                {hasUploadedPhoto ? "Your Uploaded Photo" : "Upload Your Photo"}
+              </p>
+              {hasUploadedPhoto && (
+                <span className="text-[11px] font-semibold text-teal">✓ Photo on canvas</span>
+              )}
+            </div>
+
             <input
               ref={fileInputRef}
               type="file"
@@ -338,16 +417,51 @@ export default function CustomizeCanvas({
               className="hidden"
               onChange={handleFileChange}
             />
+
             <button
               onClick={() => fileInputRef.current?.click()}
               disabled={uploading}
-              className="w-full border-2 border-dashed border-gold/60 rounded-xl py-5 sm:py-6 flex flex-col items-center justify-center gap-2 text-navy/70 hover:bg-offwhite transition active:scale-[0.99] disabled:opacity-60"
+              className={`w-full border-2 border-dashed rounded-xl py-4 sm:py-5 flex flex-col items-center justify-center gap-1.5 transition active:scale-[0.99] disabled:opacity-60 ${
+                hasUploadedPhoto
+                  ? "border-teal/60 bg-teal/5 text-navy"
+                  : "border-gold/60 text-navy/70 hover:bg-offwhite"
+              }`}
             >
-              {uploading ? <Loader2 size={24} className="animate-spin text-gold" /> : <Upload size={24} className="text-gold" />}
-              <span className="text-xs sm:text-sm font-medium">
-                {uploading ? "Uploading photo..." : "Click to upload JPG or PNG"}
+              {uploading ? (
+                <Loader2 size={22} className="animate-spin text-gold" />
+              ) : (
+                <Upload size={22} className={hasUploadedPhoto ? "text-teal" : "text-gold"} />
+              )}
+              <span className="text-xs sm:text-sm font-semibold">
+                {uploading
+                  ? "Processing photo..."
+                  : hasUploadedPhoto
+                  ? "Click to Replace / Change Photo"
+                  : "Click to upload JPG or PNG"}
+              </span>
+              <span className="text-[11px] text-navy/50">
+                {hasUploadedPhoto ? "Uploading a new photo will replace the design" : "You can resize, rotate and reposition it"}
               </span>
             </button>
+
+            {hasUploadedPhoto && (
+              <div className="flex items-center gap-2 mt-2.5">
+                <button
+                  type="button"
+                  onClick={handleFitImage}
+                  className="flex-1 text-xs font-medium py-1.5 px-2.5 rounded-lg border border-border bg-white text-navy hover:border-gold transition"
+                >
+                  Fit in Area
+                </button>
+                <button
+                  type="button"
+                  onClick={handleRemovePhoto}
+                  className="text-xs font-medium py-1.5 px-2.5 rounded-lg border border-border bg-white text-navy/70 hover:text-red hover:border-red/40 transition"
+                >
+                  Remove Photo
+                </button>
+              </div>
+            )}
           </div>
         )}
 

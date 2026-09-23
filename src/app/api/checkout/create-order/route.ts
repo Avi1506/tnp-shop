@@ -1,7 +1,7 @@
 import { NextRequest, NextResponse } from "next/server";
 import { auth } from "@/lib/auth";
 import { db } from "@/db";
-import { orders, orderItems, products, addresses } from "@/db/schema";
+import { orders, orderItems, products, addresses, users } from "@/db/schema";
 import { eq, and } from "drizzle-orm";
 import { generateOrderNumber } from "@/lib/order-number";
 import { getRazorpay } from "@/lib/razorpay";
@@ -208,6 +208,13 @@ export async function POST(req: NextRequest) {
         isDefault: allAddresses.length === 0,
       });
     }
+    // Update phone on user profile if not set
+    if (address.phone && session.user.id) {
+      await db
+        .update(users)
+        .set({ phone: address.phone })
+        .where(and(eq(users.id, session.user.id), eq(users.phone, "")));
+    }
   } catch {
     // Non-critical — don't fail the order if address save fails
   }
@@ -247,7 +254,7 @@ export async function POST(req: NextRequest) {
 
     // Send Admin New Order Email for COD
     await sendEmail({
-      to: process.env.ADMIN_EMAIL ?? "admin@thenoveltyprints.com",
+      to: process.env.ADMIN_EMAIL ?? "thenoveltyprints@gmail.com",
       subject: `New COD Order Received — ${order.orderNumber}`,
       event: "admin_new_order_cod",
       orderId: order.id,

@@ -21,19 +21,38 @@ const STATES = [
   "Uttar Pradesh", "Uttarakhand", "West Bengal", "Other",
 ];
 
+export type SavedAddress = {
+  id: string;
+  label: string | null;
+  fullName: string;
+  phone: string;
+  line1: string;
+  line2: string | null;
+  landmark: string | null;
+  city: string;
+  state: string;
+  pincode: string;
+  isDefault: boolean;
+};
+
 export default function CheckoutPage() {
   const { lines, subtotal, clear } = useCart();
-  const { data: session } = useSession();
+  const { data: session, status: authStatus } = useSession();
   const router = useRouter();
   const [loading, setLoading] = useState(false);
+  const [loadingAddresses, setLoadingAddresses] = useState(false);
+  const [savedAddresses, setSavedAddresses] = useState<SavedAddress[]>([]);
+  const [selectedAddressId, setSelectedAddressId] = useState<string | "new">("new");
+
   const [codConfig, setCodConfig] = useState<{
     enabled: boolean;
     minAmount?: number;
     maxAmount?: number;
     note?: string;
   }>({ enabled: true });
+
   const [address, setAddress] = useState({
-    fullName: session?.user?.name ?? "",
+    fullName: "",
     phone: "",
     line1: "",
     line2: "",
@@ -43,9 +62,9 @@ export default function CheckoutPage() {
     pincode: "",
   });
   const [note, setNote] = useState("");
-
   const [paymentMethod, setPaymentMethod] = useState<"online" | "cod">("online");
 
+  // Fetch store settings
   useEffect(() => {
     fetch("/api/settings")
       .then((r) => r.json())
@@ -59,6 +78,72 @@ export default function CheckoutPage() {
       })
       .catch(() => {});
   }, []);
+
+  // Fetch saved addresses and pre-populate
+  useEffect(() => {
+    if (session?.user) {
+      setLoadingAddresses(true);
+      fetch("/api/account/addresses")
+        .then((r) => r.json())
+        .then((d) => {
+          const list: SavedAddress[] = d.addresses ?? [];
+          setSavedAddresses(list);
+
+          if (list.length > 0) {
+            // Pick default address or first address
+            const def = list.find((a) => a.isDefault) || list[0];
+            setSelectedAddressId(def.id);
+            setAddress({
+              fullName: def.fullName || session.user.name || "",
+              phone: def.phone || session.user.phone || "",
+              line1: def.line1 || "",
+              line2: def.line2 || "",
+              landmark: def.landmark || "",
+              city: def.city || "",
+              state: def.state || "Uttar Pradesh",
+              pincode: def.pincode || "",
+            });
+          } else {
+            setSelectedAddressId("new");
+            setAddress((prev) => ({
+              ...prev,
+              fullName: session.user.name || prev.fullName,
+              phone: session.user.phone || prev.phone,
+            }));
+          }
+        })
+        .catch(() => {})
+        .finally(() => setLoadingAddresses(false));
+    }
+  }, [session]);
+
+  function handleSelectSavedAddress(addr: SavedAddress) {
+    setSelectedAddressId(addr.id);
+    setAddress({
+      fullName: addr.fullName,
+      phone: addr.phone,
+      line1: addr.line1,
+      line2: addr.line2 || "",
+      landmark: addr.landmark || "",
+      city: addr.city,
+      state: addr.state,
+      pincode: addr.pincode,
+    });
+  }
+
+  function handleSelectNewAddress() {
+    setSelectedAddressId("new");
+    setAddress({
+      fullName: session?.user?.name || "",
+      phone: session?.user?.phone || "",
+      line1: "",
+      line2: "",
+      landmark: "",
+      city: "",
+      state: "Uttar Pradesh",
+      pincode: "",
+    });
+  }
 
   const isCodEligible =
     codConfig.enabled &&
@@ -152,62 +237,163 @@ export default function CheckoutPage() {
       <Script src="https://checkout.razorpay.com/v1/checkout.js" strategy="lazyOnload" />
       <div className="container-page py-10 md:py-14">
         <h1 className="text-2xl md:text-3xl font-semibold text-navy mb-8">Checkout</h1>
+
+        {!session?.user && authStatus !== "loading" && (
+          <div className="mb-8 p-4 bg-offwhite border border-border rounded-xl flex flex-col sm:flex-row sm:items-center justify-between gap-3">
+            <div>
+              <p className="text-sm font-semibold text-navy">Already have an account?</p>
+              <p className="text-xs text-navy/60">Log in with your phone or email to use saved addresses and fast checkout.</p>
+            </div>
+            <button
+              type="button"
+              onClick={() => router.push(`/login?callbackUrl=${encodeURIComponent("/checkout")}`)}
+              className="bg-navy text-white text-xs font-semibold px-4 py-2 rounded-lg hover:bg-navy-dark transition shrink-0"
+            >
+              Log In
+            </button>
+          </div>
+        )}
+
         <div className="grid md:grid-cols-[1fr_360px] gap-10">
-          <form onSubmit={handlePay} className="space-y-5">
-            <h2 className="font-semibold text-navy">Shipping Address</h2>
-            <div className="grid grid-cols-2 gap-4">
-              <input
-                required
-                placeholder="Full Name"
-                value={address.fullName}
-                onChange={(e) => setAddress((a) => ({ ...a, fullName: e.target.value }))}
-                className="col-span-2 text-sm border border-border rounded-lg px-3 py-2.5 outline-none focus:border-gold"
-              />
-              <input
-                required
-                placeholder="Mobile Number"
-                value={address.phone}
-                onChange={(e) => setAddress((a) => ({ ...a, phone: e.target.value }))}
-                className="col-span-2 text-sm border border-border rounded-lg px-3 py-2.5 outline-none focus:border-gold"
-              />
-              <input
-                required
-                placeholder="House / Flat, Street, Area"
-                value={address.line1}
-                onChange={(e) => setAddress((a) => ({ ...a, line1: e.target.value }))}
-                className="col-span-2 text-sm border border-border rounded-lg px-3 py-2.5 outline-none focus:border-gold"
-              />
-              <input
-                placeholder="Landmark (optional)"
-                value={address.landmark}
-                onChange={(e) => setAddress((a) => ({ ...a, landmark: e.target.value }))}
-                className="col-span-2 text-sm border border-border rounded-lg px-3 py-2.5 outline-none focus:border-gold"
-              />
-              <input
-                required
-                placeholder="City"
-                value={address.city}
-                onChange={(e) => setAddress((a) => ({ ...a, city: e.target.value }))}
-                className="text-sm border border-border rounded-lg px-3 py-2.5 outline-none focus:border-gold"
-              />
-              <select
-                value={address.state}
-                onChange={(e) => setAddress((a) => ({ ...a, state: e.target.value }))}
-                className="text-sm border border-border rounded-lg px-3 py-2.5 outline-none focus:border-gold"
-              >
-                {STATES.map((s) => (
-                  <option key={s} value={s}>
-                    {s}
-                  </option>
-                ))}
-              </select>
-              <input
-                required
-                placeholder="PIN Code"
-                value={address.pincode}
-                onChange={(e) => setAddress((a) => ({ ...a, pincode: e.target.value }))}
-                className="col-span-2 text-sm border border-border rounded-lg px-3 py-2.5 outline-none focus:border-gold"
-              />
+          <form onSubmit={handlePay} className="space-y-6">
+            <div className="space-y-4">
+              <div className="flex items-center justify-between">
+                <h2 className="font-semibold text-navy text-lg">Shipping Address</h2>
+                {session?.user && (
+                  <span className="text-xs text-navy/50">{session.user.email}</span>
+                )}
+              </div>
+
+              {/* Saved Address Selection Cards */}
+              {session?.user && savedAddresses.length > 0 && (
+                <div className="space-y-3">
+                  <p className="text-xs font-semibold text-navy/60 uppercase tracking-wide">
+                    Select a Saved Address or Add New:
+                  </p>
+                  <div className="grid sm:grid-cols-2 gap-3">
+                    {savedAddresses.map((addr) => {
+                      const isSelected = selectedAddressId === addr.id;
+                      return (
+                        <div
+                          key={addr.id}
+                          onClick={() => handleSelectSavedAddress(addr)}
+                          className={`p-3.5 rounded-xl border cursor-pointer transition relative flex flex-col justify-between ${
+                            isSelected
+                              ? "border-navy bg-navy/5 ring-1 ring-navy shadow-xs"
+                              : "border-border bg-white hover:border-navy/40"
+                          }`}
+                        >
+                          <div>
+                            <div className="flex items-center justify-between mb-1">
+                              <span className="text-xs font-bold text-navy flex items-center gap-1.5">
+                                <input
+                                  type="radio"
+                                  name="savedAddress"
+                                  checked={isSelected}
+                                  onChange={() => handleSelectSavedAddress(addr)}
+                                  className="accent-navy"
+                                />
+                                {addr.label || "Address"}
+                              </span>
+                              {addr.isDefault && (
+                                <span className="text-[10px] bg-gold/15 text-navy-dark px-2 py-0.5 rounded-full font-medium">
+                                  Default
+                                </span>
+                              )}
+                            </div>
+                            <p className="text-xs font-medium text-navy">{addr.fullName} · {addr.phone}</p>
+                            <p className="text-xs text-navy/70 mt-1 line-clamp-2">
+                              {addr.line1}{addr.line2 ? `, ${addr.line2}` : ""}, {addr.city}, {addr.state} {addr.pincode}
+                            </p>
+                          </div>
+                        </div>
+                      );
+                    })}
+
+                    <div
+                      onClick={handleSelectNewAddress}
+                      className={`p-3.5 rounded-xl border border-dashed cursor-pointer transition flex items-center justify-center gap-2 ${
+                        selectedAddressId === "new"
+                          ? "border-navy bg-navy/5 ring-1 ring-navy shadow-xs"
+                          : "border-border bg-white hover:border-navy/40"
+                      }`}
+                    >
+                      <input
+                        type="radio"
+                        name="savedAddress"
+                        checked={selectedAddressId === "new"}
+                        onChange={handleSelectNewAddress}
+                        className="accent-navy"
+                      />
+                      <span className="text-xs font-semibold text-navy">+ Deliver to a New Address</span>
+                    </div>
+                  </div>
+                </div>
+              )}
+
+              {/* Editable Address Form Fields */}
+              <div className="pt-2">
+                <p className="text-xs font-medium text-navy/50 mb-3">
+                  {selectedAddressId === "new"
+                    ? "Enter shipping address details (will be saved for future orders):"
+                    : "Address details (you can edit any field below for this order):"}
+                </p>
+                <div className="grid grid-cols-2 gap-3.5">
+                  <input
+                    required
+                    placeholder="Full Name"
+                    value={address.fullName}
+                    onChange={(e) => setAddress((a) => ({ ...a, fullName: e.target.value }))}
+                    className="col-span-2 sm:col-span-1 text-sm border border-border rounded-lg px-3 py-2.5 outline-none focus:border-gold"
+                  />
+                  <input
+                    required
+                    type="tel"
+                    placeholder="Mobile Number"
+                    value={address.phone}
+                    onChange={(e) => setAddress((a) => ({ ...a, phone: e.target.value }))}
+                    className="col-span-2 sm:col-span-1 text-sm border border-border rounded-lg px-3 py-2.5 outline-none focus:border-gold"
+                  />
+                  <input
+                    required
+                    placeholder="House / Flat, Street, Area"
+                    value={address.line1}
+                    onChange={(e) => setAddress((a) => ({ ...a, line1: e.target.value }))}
+                    className="col-span-2 text-sm border border-border rounded-lg px-3 py-2.5 outline-none focus:border-gold"
+                  />
+                  <input
+                    placeholder="Landmark / Area (optional)"
+                    value={address.landmark}
+                    onChange={(e) => setAddress((a) => ({ ...a, landmark: e.target.value }))}
+                    className="col-span-2 text-sm border border-border rounded-lg px-3 py-2.5 outline-none focus:border-gold"
+                  />
+                  <input
+                    required
+                    placeholder="City"
+                    value={address.city}
+                    onChange={(e) => setAddress((a) => ({ ...a, city: e.target.value }))}
+                    className="text-sm border border-border rounded-lg px-3 py-2.5 outline-none focus:border-gold"
+                  />
+                  <select
+                    value={address.state}
+                    onChange={(e) => setAddress((a) => ({ ...a, state: e.target.value }))}
+                    className="text-sm border border-border rounded-lg px-3 py-2.5 outline-none focus:border-gold"
+                  >
+                    {STATES.map((s) => (
+                      <option key={s} value={s}>
+                        {s}
+                      </option>
+                    ))}
+                  </select>
+                  <input
+                    required
+                    placeholder="PIN Code"
+                    value={address.pincode}
+                    onChange={(e) => setAddress((a) => ({ ...a, pincode: e.target.value }))}
+                    className="col-span-2 text-sm border border-border rounded-lg px-3 py-2.5 outline-none focus:border-gold"
+                  />
+                </div>
+              </div>
             </div>
 
             <textarea

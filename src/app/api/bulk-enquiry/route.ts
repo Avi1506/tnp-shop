@@ -5,28 +5,44 @@ import { sendEmail } from "@/lib/email";
 import { z } from "zod";
 
 const schema = z.object({
-  name: z.string().min(2),
-  company: z.string().optional(),
-  phone: z.string().min(8),
-  email: z.string().email(),
-  productRequired: z.string().optional(),
-  quantity: z.string().optional(),
-  budget: z.string().optional(),
-  deliveryDate: z.string().optional(),
-  message: z.string().optional(),
-  fileUrl: z.string().optional(),
+  name: z.string().min(2, "Please enter your name"),
+  company: z.string().nullable().optional(),
+  phone: z.string().min(8, "Please enter a valid phone number"),
+  email: z.string().email("Please enter a valid email address"),
+  productRequired: z.string().nullable().optional(),
+  quantity: z.string().nullable().optional(),
+  budget: z.string().nullable().optional(),
+  deliveryDate: z.string().nullable().optional(),
+  message: z.string().nullable().optional(),
+  fileUrl: z.string().nullable().optional(),
 });
 
 export async function POST(req: NextRequest) {
-  const parsed = schema.safeParse(await req.json().catch(() => null));
+  const body = await req.json().catch(() => null);
+  const parsed = schema.safeParse(body);
   if (!parsed.success) {
-    return NextResponse.json({ error: "Please fill in the required fields correctly." }, { status: 400 });
+    const issue = parsed.error.issues[0]?.message || "Please fill in the required fields correctly.";
+    return NextResponse.json({ error: issue }, { status: 400 });
   }
 
-  const [enquiry] = await db.insert(bulkEnquiries).values(parsed.data).returning();
+  const [enquiry] = await db
+    .insert(bulkEnquiries)
+    .values({
+      name: parsed.data.name,
+      company: parsed.data.company ?? null,
+      phone: parsed.data.phone,
+      email: parsed.data.email,
+      productRequired: parsed.data.productRequired ?? null,
+      quantity: parsed.data.quantity ?? null,
+      budget: parsed.data.budget ?? null,
+      deliveryDate: parsed.data.deliveryDate ?? null,
+      message: parsed.data.message ?? null,
+      fileUrl: parsed.data.fileUrl ?? null,
+    })
+    .returning();
 
   await sendEmail({
-    to: process.env.ADMIN_EMAIL ?? "admin@thenoveltyprints.com",
+    to: process.env.ADMIN_EMAIL ?? "thenoveltyprints@gmail.com",
     subject: `New Bulk Enquiry from ${parsed.data.name}`,
     event: "bulk_enquiry",
     html: `

@@ -95,7 +95,7 @@ export async function POST(req: NextRequest) {
   });
 
   await sendEmail({
-    to: process.env.ADMIN_EMAIL ?? "admin@thenoveltyprints.com",
+    to: process.env.ADMIN_EMAIL ?? "thenoveltyprints@gmail.com",
     subject: `New Customized Order Received — ${order.orderNumber}`,
     event: "admin_new_order",
     orderId: order.id,
