@@ -15,6 +15,9 @@ async function getTransport() {
   if (!host || !user || !pass) {
     return null;
   }
+  const emailFrom = settings.emailFrom || process.env.EMAIL_FROM || "The Novelty Prints <thenoveltyprints@gmail.com>";
+  const adminEmail = await getAdminEmail();
+
   return {
     transport: nodemailer.createTransport({
       host,
@@ -22,9 +25,33 @@ async function getTransport() {
       secure: port === 465,
       auth: { user, pass },
     }),
-    emailFrom: settings.emailFrom || process.env.EMAIL_FROM || "The Novelty Prints <thenoveltyprints@gmail.com>",
-    adminEmail: settings.adminEmail || process.env.ADMIN_EMAIL || "thenoveltyprints@gmail.com",
+    emailFrom,
+    adminEmail,
   };
+}
+
+export async function getAdminEmail(): Promise<string> {
+  try {
+    const settings = await getEmailSettings();
+    if (
+      settings.adminEmail &&
+      settings.adminEmail !== "you@thenoveltyprints.com" &&
+      settings.adminEmail !== "admin@thenoveltyprints.com"
+    ) {
+      return settings.adminEmail;
+    }
+  } catch {}
+
+  const envAdmin = process.env.ADMIN_EMAIL;
+  if (
+    envAdmin &&
+    envAdmin !== "you@thenoveltyprints.com" &&
+    envAdmin !== "admin@thenoveltyprints.com"
+  ) {
+    return envAdmin;
+  }
+
+  return "thenoveltyprints@gmail.com";
 }
 
 export async function sendEmail(opts: {

@@ -6,7 +6,7 @@ import { eq, and } from "drizzle-orm";
 import { generateOrderNumber } from "@/lib/order-number";
 import { getRazorpay } from "@/lib/razorpay";
 import { formatINR } from "@/lib/format";
-import { sendEmail, customerOrderConfirmedEmail, adminNewOrderEmail } from "@/lib/email";
+import { sendEmail, customerOrderConfirmedEmail, adminNewOrderEmail, getAdminEmail } from "@/lib/email";
 import { z } from "zod";
 
 const lineSchema = z.object({
@@ -252,9 +252,11 @@ export async function POST(req: NextRequest) {
       }),
     });
 
+    const adminRecipient = await getAdminEmail();
+
     // Send Admin New Order Email for COD
     await sendEmail({
-      to: process.env.ADMIN_EMAIL ?? "thenoveltyprints@gmail.com",
+      to: adminRecipient,
       subject: `New COD Order Received — ${order.orderNumber}`,
       event: "admin_new_order_cod",
       orderId: order.id,

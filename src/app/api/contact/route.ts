@@ -1,5 +1,5 @@
 import { NextRequest, NextResponse } from "next/server";
-import { sendEmail } from "@/lib/email";
+import { sendEmail, getAdminEmail } from "@/lib/email";
 import { z } from "zod";
 
 const schema = z.object({
@@ -14,8 +14,10 @@ export async function POST(req: NextRequest) {
     return NextResponse.json({ error: "Please fill in all fields correctly." }, { status: 400 });
   }
 
+  const adminEmail = await getAdminEmail();
+
   await sendEmail({
-    to: process.env.ADMIN_EMAIL ?? "thenoveltyprints@gmail.com",
+    to: adminEmail,
     subject: `New message from ${parsed.data.name}`,
     event: "contact_message",
     html: `<div style="font-family:sans-serif;">

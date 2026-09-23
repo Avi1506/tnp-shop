@@ -5,7 +5,7 @@ import { orders, orderItems, payments } from "@/db/schema";
 import { eq } from "drizzle-orm";
 import { verifyRazorpaySignature } from "@/lib/razorpay";
 import { formatINR } from "@/lib/format";
-import { sendEmail, customerOrderConfirmedEmail, adminNewOrderEmail } from "@/lib/email";
+import { sendEmail, customerOrderConfirmedEmail, adminNewOrderEmail, getAdminEmail } from "@/lib/email";
 
 export async function POST(req: NextRequest) {
   const session = await auth();
@@ -94,8 +94,10 @@ export async function POST(req: NextRequest) {
     }),
   });
 
+  const adminRecipient = await getAdminEmail();
+
   await sendEmail({
-    to: process.env.ADMIN_EMAIL ?? "thenoveltyprints@gmail.com",
+    to: adminRecipient,
     subject: `New Customized Order Received — ${order.orderNumber}`,
     event: "admin_new_order",
     orderId: order.id,
