@@ -20,12 +20,10 @@ import {
   ArrowRight,
   CheckCircle2,
   ShieldCheck,
+  ZoomIn,
 } from "lucide-react";
 import type { CustomizationConfig } from "@/db/schema";
 
-const CANVAS_SIZE = 520;
-
-// Angle options for products like mugs
 type MockupAngle = {
   id: string;
   name: string;
@@ -49,9 +47,10 @@ export default function CustomizeCanvas({
   const canvasElRef = useRef<HTMLCanvasElement>(null);
   const fabricRef = useRef<fabric.Canvas | null>(null);
   const guideRef = useRef<fabric.FabricObject | null>(null);
+  const dividersRef = useRef<fabric.FabricObject[]>([]);
   const fileInputRef = useRef<HTMLInputElement>(null);
 
-  // Tab state: "design" (edit canvas) vs "preview" (Zazzle realistic product preview)
+  // Tab state: "design" (Zazzle Flat Wrap Canvas) vs "preview" (Zazzle 3D Product Mockup Review)
   const [activeTab, setActiveTab] = useState<"design" | "preview">("design");
 
   const [uploading, setUploading] = useState(false);
@@ -66,40 +65,46 @@ export default function CustomizeCanvas({
   const [hasSelection, setHasSelection] = useState(false);
   const [hasUploadedPhoto, setHasUploadedPhoto] = useState(false);
 
-  // Preview snapshot state
-  const [designSnapshot, setDesignSnapshot] = useState<string | null>(null);
+  // Snapshot of ONLY the artwork (transparent PNG)
+  const [artworkSnapshot, setArtworkSnapshot] = useState<string | null>(null);
   const [selectedAngle, setSelectedAngle] = useState<string>("front");
 
   const { addLine } = useCart();
   const router = useRouter();
 
   const isMug = name.toLowerCase().includes("mug") || name.toLowerCase().includes("cup");
-  const shape = config.shape ?? "rectangle";
+  const shape = config.shape ?? (isMug ? "rectangle" : "rectangle");
   const dimensions = config.dimensions ?? {
     widthInches: isMug ? 7.5 : 8,
     heightInches: isMug ? 3.5 : 8,
   };
 
-  // Multiple angle mockups for mugs (Front, Left Handle, Right Handle)
+  // True physical aspect ratio of the printable area
+  const aspectRatio = dimensions.widthInches / dimensions.heightInches;
+  // Calculate canvas dimensions in pixels matching real physical ratio:
+  const CANVAS_WIDTH = isMug ? 640 : (aspectRatio > 1 ? 580 : Math.round(480 * aspectRatio));
+  const CANVAS_HEIGHT = isMug ? 300 : (aspectRatio > 1 ? Math.round(580 / aspectRatio) : 480);
+
+  // Accurate calibrated multi-angle product mockups
   const angleMockups: MockupAngle[] = isMug
     ? [
         {
           id: "front",
           name: "Front View",
           url: "/images/mockups/mug-front.jpg",
-          printArea: { xPct: 28, yPct: 28, widthPct: 44, heightPct: 52 },
+          printArea: { xPct: 33, yPct: 44, widthPct: 34, heightPct: 26 },
         },
         {
           id: "handle-left",
           name: "Right Angle",
           url: "/images/mockups/mug-handle-left.jpg",
-          printArea: { xPct: 36, yPct: 28, widthPct: 42, heightPct: 52 },
+          printArea: { xPct: 41, yPct: 44, widthPct: 33, heightPct: 26 },
         },
         {
           id: "handle-right",
           name: "Left Angle",
           url: "/images/mockups/mug-handle-right.jpg",
-          printArea: { xPct: 22, yPct: 28, widthPct: 42, heightPct: 52 },
+          printArea: { xPct: 25, yPct: 44, widthPct: 33, heightPct: 26 },
         },
       ]
     : [
@@ -107,23 +112,24 @@ export default function CustomizeCanvas({
           id: "front",
           name: "Front View",
           url: config.mockupImage || "/images/mockups/mug-front.jpg",
-          printArea: config.printArea,
+          printArea: { xPct: 30, yPct: 35, widthPct: 40, heightPct: 40 },
         },
       ];
 
   const currentAngleObj = angleMockups.find((a) => a.id === selectedAngle) || angleMockups[0];
 
-  const printAreaBox = useCallback(() => {
-    const pa = config.printArea;
+  // Helper: Safe area bounds inside the flat canvas
+  const getSafeArea = useCallback(() => {
+    const margin = 16;
     return {
-      left: (pa.xPct / 100) * CANVAS_SIZE,
-      top: (pa.yPct / 100) * CANVAS_SIZE,
-      width: (pa.widthPct / 100) * CANVAS_SIZE,
-      height: (pa.heightPct / 100) * CANVAS_SIZE,
+      left: margin,
+      top: margin,
+      width: CANVAS_WIDTH - margin * 2,
+      height: CANVAS_HEIGHT - margin * 2,
     };
-  }, [config.printArea]);
+  }, [CANVAS_WIDTH, CANVAS_HEIGHT]);
 
-  // Helper: draw Zazzle-style "YOUR IMAGE HERE" placeholder on canvas
+  // Helper: draw Zazzle-style "YOUR IMAGE HERE" placeholder in the center of the safe area
   const renderPlaceholder = useCallback((canvas: fabric.Canvas) => {
     canvas.getObjects().forEach((obj) => {
       if ((obj as unknown as { isPlaceholder?: boolean }).isPlaceholder) {
@@ -131,45 +137,39 @@ export default function CustomizeCanvas({
       }
     });
 
-    const box = printAreaBox();
-    const isCircle = shape === "circle";
-    const radius = Math.min(box.width, box.height) / 2;
+    const safe = getSafeArea();
+    const boxW = Math.min(safe.width * 0.45, 220);
+    const boxH = Math.min(safe.height * 0.8, 180);
+    const boxX = safe.left + safe.width / 2 - boxW / 2;
+    const boxY = safe.top + safe.height / 2 - boxH / 2;
 
-    const bg = isCircle
-      ? new fabric.Circle({
-          left: box.left + radius,
-          top: box.top + radius,
-          radius: radius - 4,
-          originX: "center",
-          originY: "center",
-          fill: "rgba(255, 255, 255, 0.75)",
-          stroke: "rgba(184, 145, 42, 0.7)",
-          strokeDashArray: [6, 4],
-          strokeWidth: 1.5,
-          selectable: false,
-          hoverCursor: "pointer",
-        })
-      : new fabric.Rect({
-          left: box.left + 2,
-          top: box.top + 2,
-          width: box.width - 4,
-          height: box.height - 4,
-          rx: 8,
-          ry: 8,
-          fill: "rgba(255, 255, 255, 0.75)",
-          stroke: "rgba(184, 145, 42, 0.7)",
-          strokeDashArray: [6, 4],
-          strokeWidth: 1.5,
-          selectable: false,
-          hoverCursor: "pointer",
-        });
+    const bg = new fabric.Rect({
+      left: boxX,
+      top: boxY,
+      width: boxW,
+      height: boxH,
+      rx: 12,
+      ry: 12,
+      fill: "rgba(255, 255, 255, 0.95)",
+      stroke: "#B8912A",
+      strokeDashArray: [6, 4],
+      strokeWidth: 1.5,
+      shadow: new fabric.Shadow({
+        color: "rgba(0, 0, 0, 0.05)",
+        blur: 10,
+        offsetX: 0,
+        offsetY: 4,
+      }),
+      selectable: false,
+      hoverCursor: "pointer",
+    });
 
     const titleText = new fabric.FabricText("YOUR IMAGE HERE", {
-      left: box.left + box.width / 2,
-      top: box.top + box.height / 2 - 10,
+      left: safe.left + safe.width / 2,
+      top: safe.top + safe.height / 2 - 12,
       originX: "center",
       originY: "center",
-      fontSize: Math.max(13, Math.min(18, box.width / 16)),
+      fontSize: 16,
       fontWeight: "bold",
       fill: "#1B2A4A",
       fontFamily: "Poppins",
@@ -178,11 +178,11 @@ export default function CustomizeCanvas({
     });
 
     const subText = new fabric.FabricText("Click or tap to upload photo", {
-      left: box.left + box.width / 2,
-      top: box.top + box.height / 2 + 14,
+      left: safe.left + safe.width / 2,
+      top: safe.top + safe.height / 2 + 14,
       originX: "center",
       originY: "center",
-      fontSize: Math.max(10, Math.min(12, box.width / 26)),
+      fontSize: 11,
       fill: "#B8912A",
       fontFamily: "Poppins",
       selectable: false,
@@ -195,81 +195,33 @@ export default function CustomizeCanvas({
 
     canvas.add(bg, titleText, subText);
     canvas.renderAll();
-  }, [printAreaBox, shape]);
+  }, [getSafeArea]);
 
-  // Load the product mockup background safely
-  const loadBackgroundMockup = useCallback((canvas: fabric.Canvas, url: string) => {
-    const imgObj = new window.Image();
-    imgObj.crossOrigin = "anonymous";
-    imgObj.onload = () => {
-      const fbImg = new fabric.FabricImage(imgObj);
-      const scale = Math.min(CANVAS_SIZE / (fbImg.width ?? 1), CANVAS_SIZE / (fbImg.height ?? 1));
-      fbImg.set({
-        scaleX: scale,
-        scaleY: scale,
-        left: CANVAS_SIZE / 2,
-        top: CANVAS_SIZE / 2,
-        originX: "center",
-        originY: "center",
-        selectable: false,
-        evented: false,
-      });
-      canvas.backgroundImage = fbImg;
-      canvas.renderAll();
-    };
-    imgObj.onerror = () => {
-      // Fallback to local default mockup if remote image fails
-      const fallback = new window.Image();
-      fallback.onload = () => {
-        const fbImg = new fabric.FabricImage(fallback);
-        const scale = Math.min(CANVAS_SIZE / (fbImg.width ?? 1), CANVAS_SIZE / (fbImg.height ?? 1));
-        fbImg.set({
-          scaleX: scale,
-          scaleY: scale,
-          left: CANVAS_SIZE / 2,
-          top: CANVAS_SIZE / 2,
-          originX: "center",
-          originY: "center",
-          selectable: false,
-          evented: false,
-        });
-        canvas.backgroundImage = fbImg;
-        canvas.renderAll();
-      };
-      fallback.src = "/images/mockups/mug-front.jpg";
-    };
-    imgObj.src = url;
-  }, []);
-
-  // ---- init canvas -------------------------------------------------------
+  // ---- init flat design canvas (Zazzle style) ----------------------------
   useEffect(() => {
     if (!canvasElRef.current) return;
     const canvas = new fabric.Canvas(canvasElRef.current, {
-      width: CANVAS_SIZE,
-      height: CANVAS_SIZE,
+      width: CANVAS_WIDTH,
+      height: CANVAS_HEIGHT,
       backgroundColor: "#FAF9F6",
       preserveObjectStacking: true,
     });
     fabricRef.current = canvas;
 
-    const bgUrl = config.mockupImage || "/images/mockups/mug-front.jpg";
-    loadBackgroundMockup(canvas, bgUrl);
-
-    // Draw the printable-area guide
-    const pa = config.printArea;
+    const safe = getSafeArea();
     const isCircle = shape === "circle";
     let guide: fabric.FabricObject;
 
     if (isCircle) {
-      const radius = Math.min((pa.widthPct / 100) * CANVAS_SIZE, (pa.heightPct / 100) * CANVAS_SIZE) / 2;
+      const radius = Math.min(safe.width, safe.height) / 2;
       guide = new fabric.Circle({
-        left: (pa.xPct / 100) * CANVAS_SIZE + radius,
-        top: (pa.yPct / 100) * CANVAS_SIZE + radius,
+        left: safe.left + safe.width / 2,
+        top: safe.top + safe.height / 2,
         radius: radius,
         originX: "center",
         originY: "center",
         fill: "transparent",
-        stroke: "#B8912A",
+        stroke: "#2A9D8F",
         strokeDashArray: [6, 4],
         strokeWidth: 1.5,
         selectable: false,
@@ -277,14 +229,14 @@ export default function CustomizeCanvas({
       });
     } else {
       guide = new fabric.Rect({
-        left: (pa.xPct / 100) * CANVAS_SIZE,
-        top: (pa.yPct / 100) * CANVAS_SIZE,
-        width: (pa.widthPct / 100) * CANVAS_SIZE,
-        height: (pa.heightPct / 100) * CANVAS_SIZE,
-        rx: 6,
-        ry: 6,
+        left: safe.left,
+        top: safe.top,
+        width: safe.width,
+        height: safe.height,
+        rx: 8,
+        ry: 8,
         fill: "transparent",
-        stroke: "#B8912A",
+        stroke: "#2A9D8F",
         strokeDashArray: [6, 4],
         strokeWidth: 1.5,
         selectable: false,
@@ -295,7 +247,25 @@ export default function CustomizeCanvas({
     guideRef.current = guide;
     canvas.add(guide);
 
-    // Add "Your Image Here" placeholder if image uploads are enabled
+    // For Mugs: add subtle vertical guide dividers (Left Side | Center Front | Right Side)
+    if (isMug) {
+      const div1 = new fabric.Line([safe.left + safe.width / 3, safe.top, safe.left + safe.width / 3, safe.top + safe.height], {
+        stroke: "rgba(27, 42, 74, 0.15)",
+        strokeDashArray: [4, 4],
+        selectable: false,
+        evented: false,
+      });
+      const div2 = new fabric.Line([safe.left + (safe.width * 2) / 3, safe.top, safe.left + (safe.width * 2) / 3, safe.top + safe.height], {
+        stroke: "rgba(27, 42, 74, 0.15)",
+        strokeDashArray: [4, 4],
+        selectable: false,
+        evented: false,
+      });
+      dividersRef.current = [div1, div2];
+      canvas.add(div1, div2);
+    }
+
+    // Add Zazzle-style clickable placeholder
     if (config.fields.imageUpload) {
       renderPlaceholder(canvas);
     }
@@ -329,7 +299,7 @@ export default function CustomizeCanvas({
       localUrl = URL.createObjectURL(file);
       const canvas = fabricRef.current;
       if (canvas) {
-        // Remove existing placeholders & previous custom image if single image mode
+        // Remove existing placeholders and previous custom images
         const objects = canvas.getObjects();
         objects.forEach((obj) => {
           const customObj = obj as unknown as { isPlaceholder?: boolean; isCustomImage?: boolean };
@@ -339,11 +309,15 @@ export default function CustomizeCanvas({
         });
 
         const img = await fabric.FabricImage.fromURL(localUrl, { crossOrigin: "anonymous" });
-        const box = printAreaBox();
-        const scale = Math.min(box.width / (img.width ?? 1), box.height / (img.height ?? 1));
+        const safe = getSafeArea();
+        // Scale to fit cleanly within safe area
+        const maxH = safe.height * 0.85;
+        const maxW = isMug ? safe.width * 0.45 : safe.width * 0.8;
+        const scale = Math.min(maxW / (img.width ?? 1), maxH / (img.height ?? 1));
+
         img.set({
-          left: box.left + box.width / 2,
-          top: box.top + box.height / 2,
+          left: safe.left + safe.width / 2,
+          top: safe.top + safe.height / 2,
           originX: "center",
           originY: "center",
           scaleX: scale,
@@ -359,7 +333,7 @@ export default function CustomizeCanvas({
         setHasUploadedPhoto(true);
       }
 
-      // Upload file to Cloudflare R2 via server endpoint
+      // Stream upload to Cloudflare R2
       const fd = new FormData();
       fd.append("file", file);
       fd.append("folder", "customizations");
@@ -373,7 +347,7 @@ export default function CustomizeCanvas({
       setUploadedUrls((prev) =>
         config.fields.multipleImages ? [...prev, finalUrl] : [finalUrl]
       );
-      toast.success("Photo placed! Drag, resize or rotate to fit.");
+      toast.success("Photo placed! Drag, resize or rotate to position.");
     } catch (err) {
       console.error("[upload error]", err);
       toast.error(
@@ -385,26 +359,30 @@ export default function CustomizeCanvas({
     }
   }
 
-  // Switch to Preview / Review mode (Zazzle Photo 5)
+  // ---- Capture ONLY artwork (transparent PNG) and open 3D Review --------
   function handleSwitchToPreview() {
     const canvas = fabricRef.current;
     if (!canvas) return;
 
-    // Temporarily hide guide border & placeholders
+    // 1. Temporarily hide guides, dividers, and placeholders
     if (guideRef.current) guideRef.current.set({ opacity: 0 });
+    dividersRef.current.forEach((d) => d.set({ opacity: 0 }));
     canvas.getObjects().forEach((obj) => {
       if ((obj as unknown as { isPlaceholder?: boolean }).isPlaceholder) {
         obj.set({ opacity: 0 });
       }
     });
     canvas.discardActiveObject();
+    canvas.backgroundColor = "transparent";
     canvas.renderAll();
 
-    // Snapshot of the design
-    const snapshot = canvas.toDataURL({ format: "png", quality: 0.95, multiplier: 1.5 });
+    // 2. Capture ONLY the customer's design as a clean transparent PNG
+    const transparentArtwork = canvas.toDataURL({ format: "png", multiplier: 2 });
 
-    // Restore guide & placeholders on design canvas
+    // 3. Restore canvas styling for design mode
+    canvas.backgroundColor = "#FAF9F6";
     if (guideRef.current) guideRef.current.set({ opacity: 1 });
+    dividersRef.current.forEach((d) => d.set({ opacity: 1 }));
     canvas.getObjects().forEach((obj) => {
       if ((obj as unknown as { isPlaceholder?: boolean }).isPlaceholder) {
         obj.set({ opacity: 1 });
@@ -412,21 +390,23 @@ export default function CustomizeCanvas({
     });
     canvas.renderAll();
 
-    setDesignSnapshot(snapshot);
+    setArtworkSnapshot(transparentArtwork);
     setActiveTab("preview");
   }
 
-  // ---- fit/center active or custom image ----------------------------------
+  // ---- quick placement helpers --------------------------------------------
   function handleFitImage() {
     const canvas = fabricRef.current;
     if (!canvas) return;
-    const box = printAreaBox();
+    const safe = getSafeArea();
     const active = canvas.getActiveObject() || canvas.getObjects().find((o) => (o as unknown as { isCustomImage?: boolean }).isCustomImage);
     if (active && (active.type === "image" || (active as unknown as { isCustomImage?: boolean }).isCustomImage)) {
-      const scale = Math.min(box.width / (active.width ?? 1), box.height / (active.height ?? 1));
+      const maxH = safe.height * 0.9;
+      const maxW = isMug ? safe.width * 0.45 : safe.width * 0.85;
+      const scale = Math.min(maxW / (active.width ?? 1), maxH / (active.height ?? 1));
       active.set({
-        left: box.left + box.width / 2,
-        top: box.top + box.height / 2,
+        left: safe.left + safe.width / 2,
+        top: safe.top + safe.height / 2,
         originX: "center",
         originY: "center",
         scaleX: scale,
@@ -435,20 +415,20 @@ export default function CustomizeCanvas({
       });
       canvas.setActiveObject(active);
       canvas.renderAll();
-      toast.success("Photo fitted to print area");
+      toast.success("Photo centered in print area");
     }
   }
 
   function handleFillArea() {
     const canvas = fabricRef.current;
     if (!canvas) return;
-    const box = printAreaBox();
+    const safe = getSafeArea();
     const active = canvas.getActiveObject() || canvas.getObjects().find((o) => (o as unknown as { isCustomImage?: boolean }).isCustomImage);
     if (active && (active.type === "image" || (active as unknown as { isCustomImage?: boolean }).isCustomImage)) {
-      const scale = Math.max(box.width / (active.width ?? 1), box.height / (active.height ?? 1));
+      const scale = Math.max(safe.width / (active.width ?? 1), safe.height / (active.height ?? 1));
       active.set({
-        left: box.left + box.width / 2,
-        top: box.top + box.height / 2,
+        left: safe.left + safe.width / 2,
+        top: safe.top + safe.height / 2,
         originX: "center",
         originY: "center",
         scaleX: scale,
@@ -457,7 +437,7 @@ export default function CustomizeCanvas({
       });
       canvas.setActiveObject(active);
       canvas.renderAll();
-      toast.success("Photo filled across print area");
+      toast.success("Photo expanded across full area");
     }
   }
 
@@ -486,16 +466,16 @@ export default function CustomizeCanvas({
     }
     const canvas = fabricRef.current;
     if (!canvas) return;
-    const box = printAreaBox();
+    const safe = getSafeArea();
     const textbox = new fabric.Textbox(textValue.slice(0, config.fields.maxTextLength), {
-      left: box.left + box.width / 2,
-      top: box.top + box.height / 2,
+      left: safe.left + safe.width / 2,
+      top: safe.top + safe.height / 2,
       originX: "center",
       originY: "center",
       fontFamily: font,
       fill: textColor,
       fontSize: 26,
-      width: box.width * 0.9,
+      width: Math.min(safe.width * 0.5, 260),
       textAlign: "center",
       cornerColor: "#B8912A",
       cornerStyle: "circle",
@@ -535,7 +515,9 @@ export default function CustomizeCanvas({
     const canvas = fabricRef.current;
     if (!canvas) return;
     canvas.getObjects().forEach((o) => {
-      if (o !== guideRef.current) canvas.remove(o);
+      if (o !== guideRef.current && !dividersRef.current.includes(o)) {
+        canvas.remove(o);
+      }
     });
     canvas.discardActiveObject();
     setUploadedUrls([]);
@@ -545,7 +527,7 @@ export default function CustomizeCanvas({
     renderPlaceholder(canvas);
   }
 
-  // ---- submit: render final preview, upload it, add to cart -------------
+  // ---- submit: capture final design and add to cart ----------------------
   async function handleAddToCart() {
     if (!approved) {
       toast.error("Please review and check the approval checkbox first.");
@@ -559,18 +541,25 @@ export default function CustomizeCanvas({
     setSubmitting(true);
     try {
       const canvas = fabricRef.current;
-      let finalSnapshot = designSnapshot;
+      let finalSnapshot = artworkSnapshot;
 
       if (canvas) {
         if (guideRef.current) guideRef.current.set({ opacity: 0 });
+        dividersRef.current.forEach((d) => d.set({ opacity: 0 }));
         canvas.getObjects().forEach((obj) => {
           if ((obj as unknown as { isPlaceholder?: boolean }).isPlaceholder) {
             obj.set({ opacity: 0 });
           }
         });
         canvas.discardActiveObject();
+        canvas.backgroundColor = "transparent";
         canvas.renderAll();
-        finalSnapshot = canvas.toDataURL({ format: "png", quality: 0.95, multiplier: 1.5 });
+        finalSnapshot = canvas.toDataURL({ format: "png", quality: 0.95, multiplier: 2 });
+
+        canvas.backgroundColor = "#FAF9F6";
+        if (guideRef.current) guideRef.current.set({ opacity: 1 });
+        dividersRef.current.forEach((d) => d.set({ opacity: 1 }));
+        canvas.renderAll();
       }
 
       let previewImageUrl = finalSnapshot || "/images/mockups/mug-front.jpg";
@@ -579,7 +568,7 @@ export default function CustomizeCanvas({
         try {
           const blob = await (await fetch(finalSnapshot)).blob();
           const fd = new FormData();
-          fd.append("file", new File([blob], "preview.png", { type: "image/png" }));
+          fd.append("file", new File([blob], "custom-design.png", { type: "image/png" }));
           fd.append("folder", "previews");
           const res = await fetch("/api/upload", { method: "POST", body: fd });
           const data = await res.json();
@@ -621,7 +610,7 @@ export default function CustomizeCanvas({
 
   return (
     <div className="w-full">
-      {/* Zazzle-style Top Nav Bar: Design vs Preview */}
+      {/* Zazzle-style Top Guided Flow Header */}
       <div className="flex flex-wrap items-center justify-between border-b border-border pb-4 mb-6 gap-3">
         <div className="flex items-center gap-2 bg-offwhite p-1 rounded-xl border border-border">
           <button
@@ -634,7 +623,7 @@ export default function CustomizeCanvas({
             }`}
           >
             <Pencil size={15} />
-            <span>1. Design &amp; Edit</span>
+            <span>Design</span>
           </button>
           <button
             type="button"
@@ -646,7 +635,7 @@ export default function CustomizeCanvas({
             }`}
           >
             <Eye size={15} />
-            <span>2. Preview &amp; Review</span>
+            <span>Review &amp; Mockup</span>
           </button>
         </div>
 
@@ -655,9 +644,10 @@ export default function CustomizeCanvas({
             <button
               type="button"
               onClick={handleSwitchToPreview}
-              className="flex items-center gap-2 bg-gold text-navy-dark text-xs sm:text-sm font-semibold px-4 sm:px-5 py-2.5 rounded-full hover:brightness-110 shadow-sm transition active:scale-95"
+              className="flex items-center gap-2 bg-gold text-navy-dark text-xs sm:text-sm font-semibold px-5 py-2.5 rounded-full hover:brightness-110 shadow-sm transition active:scale-95"
             >
-              <span>Review Mockup</span>
+              <Eye size={15} />
+              <span>Preview</span>
               <ArrowRight size={15} />
             </button>
           ) : (
@@ -672,47 +662,63 @@ export default function CustomizeCanvas({
         </div>
       </div>
 
-      {/* VIEW 1: DESIGN MODE */}
+      {/* VIEW 1: ZAZZLE FLAT DESIGN CANVAS (Aspect Ratio 7.5" x 3.5") */}
       <div className={activeTab === "design" ? "block" : "hidden"}>
-        <div className="flex flex-col md:grid md:grid-cols-[1fr_380px] gap-6 md:gap-10 w-full overflow-x-hidden">
-          {/* Canvas Area */}
-          <div className="w-full">
-            {/* Dimensions Badge & Safe Area Banner */}
-            <div className="flex items-center justify-between mb-2.5 px-1">
+        <div className="flex flex-col lg:grid lg:grid-cols-[1fr_380px] gap-6 lg:gap-10 w-full overflow-x-hidden">
+          {/* Canvas Work Area */}
+          <div className="w-full flex flex-col items-center">
+            {/* Real Dimensions & Quality Banner */}
+            <div className="w-full max-w-[640px] flex items-center justify-between mb-2.5 px-1">
               <div className="flex items-center gap-1.5 text-xs font-semibold text-navy">
                 <span className="inline-block w-2 h-2 rounded-full bg-teal animate-pulse" />
-                Live Canvas Editor
+                Flat Print Template
               </div>
               <div className="text-[11px] font-semibold text-navy/80 bg-white px-3 py-1 rounded-full border border-border shadow-xs flex items-center gap-1">
                 <Sparkles size={11} className="text-gold" />
                 <span>
-                  Print Area: {dimensions.widthInches}&quot; × {dimensions.heightInches}&quot; ({shape})
+                  Print Dimensions: {dimensions.widthInches}&quot; × {dimensions.heightInches}&quot; ({shape})
                 </span>
               </div>
             </div>
 
-            {/* Canvas Box with Zazzle-style Dimension Guides */}
-            <div className="relative w-full max-w-[520px] mx-auto rounded-2xl border border-border bg-offwhite p-2 sm:p-4 flex flex-col items-center justify-center overflow-hidden shadow-xs">
-              {/* Width dimension label (8.5 in / 7.5 in) */}
-              <div className="w-full flex items-center justify-center gap-2 mb-1.5 text-[11px] font-semibold text-navy/60">
+            {/* Flat Canvas Box with Zazzle Rulers */}
+            <div className="relative w-full max-w-[640px] rounded-2xl border border-border bg-white p-3 sm:p-5 flex flex-col items-center justify-center shadow-xs">
+              {/* Width Dimension Ruler */}
+              <div className="w-full flex items-center justify-center gap-2 mb-2 text-xs font-semibold text-navy/70">
                 <span className="h-px bg-border flex-1" />
-                <span>↔ {dimensions.widthInches} in Width</span>
+                <span className="bg-offwhite px-2.5 py-0.5 rounded border border-border text-[11px]">
+                  ↔ {dimensions.widthInches} in (Full Wrap Width)
+                </span>
                 <span className="h-px bg-border flex-1" />
               </div>
 
-              <div className="relative w-full aspect-square flex items-center justify-center [&_.canvas-container]:!w-full [&_.canvas-container]:!h-full [&_canvas]:!w-full [&_canvas]:!h-full [&_canvas]:!max-w-full">
-                <canvas ref={canvasElRef} className="rounded-lg shadow-inner touch-none" />
+              {/* Responsive Container for Flat Canvas */}
+              <div
+                className="relative w-full rounded-xl overflow-hidden border border-border/80 bg-[#FAF9F6] flex items-center justify-center [&_.canvas-container]:!w-full [&_.canvas-container]:!h-full [&_canvas]:!w-full [&_canvas]:!h-full"
+                style={{ aspectRatio: `${CANVAS_WIDTH} / ${CANVAS_HEIGHT}` }}
+              >
+                <canvas ref={canvasElRef} className="touch-none" />
               </div>
 
-              {/* Height dimension label */}
-              <div className="w-full flex items-center justify-between mt-1.5 text-[11px] font-semibold text-navy/50 px-1">
-                <span className="text-gold font-medium">● Safe Print Area (Dashed Box)</span>
-                <span>↕ {dimensions.heightInches} in Height</span>
+              {/* Mug Section Labels & Height Ruler */}
+              <div className="w-full flex items-center justify-between mt-2.5 text-[11px] text-navy/60 px-1">
+                {isMug ? (
+                  <div className="flex items-center gap-4 text-[10px] font-medium text-navy/50">
+                    <span>← Left Side</span>
+                    <span className="text-teal font-semibold">● Center Front</span>
+                    <span>Right Side →</span>
+                  </div>
+                ) : (
+                  <span className="text-teal font-medium">● Safe Area (Green Dashed Line)</span>
+                )}
+                <span className="bg-offwhite px-2 py-0.5 rounded border border-border text-[10px] font-semibold">
+                  ↕ {dimensions.heightInches} in Height
+                </span>
               </div>
             </div>
 
             <p className="text-[11px] sm:text-xs text-navy/60 mt-3 text-center px-2">
-              The dashed guide shows your exact printable area. Drag, scale (corner handles) or rotate your photo.
+              Design on this flat print strip. When ready, click &ldquo;Preview&rdquo; to see it wrapped on the 3D mug!
             </p>
 
             <div className="flex flex-wrap justify-center gap-2 sm:gap-3 mt-4">
@@ -727,19 +733,19 @@ export default function CustomizeCanvas({
                 onClick={handleReset}
                 className="text-xs font-semibold py-2 px-3 rounded-xl border border-border flex items-center gap-1.5 text-navy/80 hover:text-red hover:border-red/40 transition bg-white shadow-xs"
               >
-                <RotateCcw size={13} /> Reset All
+                <RotateCcw size={13} /> Reset Canvas
               </button>
               <button
                 onClick={handleSwitchToPreview}
-                className="text-xs font-semibold py-2 px-3.5 rounded-xl bg-navy text-white hover:bg-navy-dark transition flex items-center gap-1.5 shadow-xs"
+                className="text-xs font-semibold py-2 px-4 rounded-xl bg-navy text-white hover:bg-navy-dark transition flex items-center gap-1.5 shadow-xs"
               >
-                <Eye size={13} /> 👁️ View Mockup
+                <Eye size={13} /> 👁️ View on 3D Mug
               </button>
             </div>
           </div>
 
           {/* Controls Sidebar */}
-          <div className="space-y-6 bg-white p-4 sm:p-6 rounded-2xl border border-border md:border-0 md:p-0 md:bg-transparent">
+          <div className="space-y-6 bg-white p-4 sm:p-6 rounded-2xl border border-border shadow-xs">
             <div>
               <h2 className="font-display text-xl sm:text-2xl font-semibold text-navy mb-1">{name}</h2>
               <p className="text-red font-bold text-lg">Starting ₹{price}</p>
@@ -749,10 +755,10 @@ export default function CustomizeCanvas({
               <div>
                 <div className="flex items-center justify-between mb-2">
                   <p className="text-xs font-semibold text-navy/60 uppercase tracking-wide">
-                    {hasUploadedPhoto ? "Your Uploaded Photo" : "Upload Your Photo"}
+                    {hasUploadedPhoto ? "Your Uploaded Photo" : "Upload Your Photo / Logo"}
                   </p>
                   {hasUploadedPhoto && (
-                    <span className="text-[11px] font-semibold text-teal">✓ Photo on canvas</span>
+                    <span className="text-[11px] font-semibold text-teal">✓ Active on design</span>
                   )}
                 </div>
 
@@ -780,15 +786,13 @@ export default function CustomizeCanvas({
                   )}
                   <span className="text-xs sm:text-sm font-semibold">
                     {uploading
-                      ? "Uploading to cloud..."
+                      ? "Uploading photo to cloud..."
                       : hasUploadedPhoto
-                      ? "Click to Replace / Change Photo"
-                      : "Click or tap to upload photo"}
+                      ? "Click to Replace Photo"
+                      : "Click to upload photo or logo"}
                   </span>
                   <span className="text-[11px] text-navy/50">
-                    {hasUploadedPhoto
-                      ? "Uploading a new photo will replace the design"
-                      : `Calibrated for ${dimensions.widthInches}" × ${dimensions.heightInches}" print`}
+                    Supports high-resolution PNG, JPG and WebP
                   </span>
                 </button>
 
@@ -799,7 +803,7 @@ export default function CustomizeCanvas({
                       onClick={handleFitImage}
                       className="text-xs font-medium py-1.5 px-2 rounded-lg border border-border bg-white text-navy hover:border-gold transition flex items-center justify-center gap-1"
                     >
-                      <Maximize2 size={12} /> Fit Area
+                      <Maximize2 size={12} /> Center
                     </button>
                     <button
                       type="button"
@@ -837,7 +841,7 @@ export default function CustomizeCanvas({
                     onClick={handleAddText}
                     className="bg-navy text-white text-xs font-semibold px-4 rounded-lg hover:bg-navy-dark shrink-0 flex items-center gap-1.5 transition active:scale-95"
                   >
-                    <ImagePlus size={14} /> Add Text
+                    <ImagePlus size={14} /> Add
                   </button>
                 </div>
 
@@ -852,7 +856,7 @@ export default function CustomizeCanvas({
                             setFont(f);
                             applyStyleToSelection({ font: f });
                           }}
-                          className={`text-xs px-3.5 py-2 rounded-full border transition active:scale-95 ${
+                          className={`text-xs px-3.5 py-1.5 rounded-full border transition active:scale-95 ${
                             font === f ? "bg-navy text-white border-navy font-semibold" : "border-border text-navy hover:border-navy"
                           }`}
                           style={{ fontFamily: f }}
@@ -891,17 +895,18 @@ export default function CustomizeCanvas({
               onClick={handleSwitchToPreview}
               className="w-full bg-navy text-white font-semibold py-3.5 rounded-full hover:bg-navy-dark transition flex items-center justify-center gap-2 text-sm shadow-md"
             >
-              <span>Next: Review &amp; Preview Mockup</span>
+              <Eye size={16} />
+              <span>Next: Preview on 3D Mug</span>
               <ArrowRight size={16} />
             </button>
           </div>
         </div>
       </div>
 
-      {/* VIEW 2: ZAZZLE REALISTIC PREVIEW & REVIEW (Zazzle Photo 5) */}
+      {/* VIEW 2: ZAZZLE 3D PRODUCT MOCKUP REVIEW (Zazzle Photo 5) */}
       <div className={activeTab === "preview" ? "block" : "hidden"}>
         <div className="grid grid-cols-1 lg:grid-cols-[100px_1fr_380px] gap-6 items-start">
-          {/* Angle Thumbnails (Left Column like Zazzle) */}
+          {/* Angle Thumbnails (Left Column like Zazzle Photo 5) */}
           <div className="flex lg:flex-col gap-2.5 overflow-x-auto lg:overflow-visible pb-2 lg:pb-0">
             {angleMockups.map((angle) => (
               <button
@@ -910,7 +915,7 @@ export default function CustomizeCanvas({
                 onClick={() => setSelectedAngle(angle.id)}
                 className={`relative flex flex-col items-center p-1.5 rounded-xl border transition shrink-0 ${
                   selectedAngle === angle.id
-                    ? "border-navy ring-2 ring-navy/20 bg-white"
+                    ? "border-navy ring-2 ring-navy/20 bg-white shadow-xs"
                     : "border-border bg-offwhite hover:border-navy/40"
                 }`}
               >
@@ -922,10 +927,10 @@ export default function CustomizeCanvas({
             ))}
           </div>
 
-          {/* Realistic Product Mockup with Design Overlay (Center Column) */}
+          {/* Photorealistic Product Mockup with Design Overlay (Center Column) */}
           <div className="bg-white rounded-2xl border border-border p-4 sm:p-6 flex flex-col items-center shadow-xs">
-            <div className="relative w-full max-w-[480px] aspect-square rounded-xl overflow-hidden bg-offwhite flex items-center justify-center">
-              {/* Blank Product Mockup Photo */}
+            <div className="relative w-full max-w-[480px] aspect-square rounded-xl overflow-hidden bg-[#FAF9F6] flex items-center justify-center">
+              {/* Clean Blank Mug Photo */}
               <Image
                 src={currentAngleObj.url}
                 alt={currentAngleObj.name}
@@ -934,8 +939,8 @@ export default function CustomizeCanvas({
                 className="object-contain"
               />
 
-              {/* Design Overlay */}
-              {designSnapshot && (
+              {/* Customer Artwork ONLY (transparent PNG) overlaid onto ceramic mug with multiply blend */}
+              {artworkSnapshot && (
                 <div
                   className="absolute pointer-events-none transition-all duration-300"
                   style={{
@@ -945,13 +950,12 @@ export default function CustomizeCanvas({
                     height: `${currentAngleObj.printArea.heightPct}%`,
                   }}
                 >
-                  <div className="relative w-full h-full mix-blend-multiply opacity-95">
-                    {/* Render the design snapshot overlay */}
+                  <div className="relative w-full h-full mix-blend-multiply flex items-center justify-center">
                     {/* eslint-disable-next-line @next/next/no-img-element */}
                     <img
-                      src={designSnapshot}
+                      src={artworkSnapshot}
                       alt="Custom Design"
-                      className="w-full h-full object-contain"
+                      className="w-full h-full object-contain filter drop-shadow-xs"
                     />
                   </div>
                 </div>
@@ -960,7 +964,7 @@ export default function CustomizeCanvas({
 
             <div className="flex items-center gap-4 mt-4 text-xs text-navy/60">
               <span className="flex items-center gap-1 text-teal font-medium">
-                <CheckCircle2 size={14} /> Photo calibrated
+                <CheckCircle2 size={14} /> 3D Realistic Preview
               </span>
               <span>•</span>
               <span>Angle: {currentAngleObj.name}</span>
@@ -970,24 +974,24 @@ export default function CustomizeCanvas({
                 onClick={() => setActiveTab("design")}
                 className="text-gold font-semibold hover:underline"
               >
-                Adjust Position
+                Edit Artwork
               </button>
             </div>
           </div>
 
-          {/* Review & Order Summary Sidebar (Right Column like Zazzle Photo 5) */}
+          {/* Review Checklist & Checkout Sidebar (Right Column like Zazzle Photo 5) */}
           <div className="space-y-5 bg-white p-5 sm:p-6 rounded-2xl border border-border shadow-xs">
             <div>
               <p className="text-xs font-semibold text-gold uppercase tracking-widest mb-1">Final Review</p>
               <h2 className="font-display text-xl sm:text-2xl font-bold text-navy">Let&apos;s make sure it&apos;s just right</h2>
-              <p className="text-xs text-navy/60 mt-1">Review your design before continuing to cart.</p>
+              <p className="text-xs text-navy/60 mt-1">Review your mockup before adding to cart.</p>
             </div>
 
             <div className="bg-offwhite rounded-xl p-4 border border-border space-y-2.5 text-xs text-navy/80">
               <p className="font-semibold text-navy uppercase text-[11px] tracking-wide">Things to check:</p>
               <div className="flex items-start gap-2">
                 <CheckCircle2 size={14} className="text-teal shrink-0 mt-0.5" />
-                <span>Photo and custom text are aligned properly within print boundary</span>
+                <span>Photo and custom text are aligned properly</span>
               </div>
               <div className="flex items-start gap-2">
                 <CheckCircle2 size={14} className="text-teal shrink-0 mt-0.5" />
@@ -995,7 +999,7 @@ export default function CustomizeCanvas({
               </div>
               <div className="flex items-start gap-2">
                 <CheckCircle2 size={14} className="text-teal shrink-0 mt-0.5" />
-                <span>High quality print guaranteed ({dimensions.widthInches}&quot; × {dimensions.heightInches}&quot;)</span>
+                <span>High-resolution sublimation print ({dimensions.widthInches}&quot; × {dimensions.heightInches}&quot;)</span>
               </div>
             </div>
 
@@ -1030,7 +1034,7 @@ export default function CustomizeCanvas({
                   rows={2}
                   value={instructions}
                   onChange={(e) => setInstructions(e.target.value)}
-                  placeholder="Any extra instructions?"
+                  placeholder="Any special requests or instructions?"
                   className="w-full text-xs border border-border rounded-lg px-3 py-2 outline-none focus:border-gold resize-none"
                 />
               </div>
