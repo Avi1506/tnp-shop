@@ -13,7 +13,11 @@ import {
   Package,
 } from "lucide-react";
 
-export const dynamic = "force-dynamic";
+// Rule 4: ISR — Static Caching
+// Pre-renders the home page and serves it from Vercel's global edge CDN.
+// Neon DB is only queried once per hour maximum, not on every visitor's request.
+// This lets 1,000+ simultaneous visitors see the page instantly without any DB load.
+export const revalidate = 3600; // Rebuild at most once per hour
 
 export default async function Home() {
   const [categories, bestsellers] = await Promise.all([

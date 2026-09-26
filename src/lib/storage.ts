@@ -4,22 +4,35 @@ import path from "path";
 import { v4 as uuid } from "uuid";
 import { S3Client, PutObjectCommand } from "@aws-sdk/client-s3";
 
-const ALLOWED_MIME = new Set(["image/jpeg", "image/jpg", "image/png", "image/webp", "application/pdf"]);
-const MAX_BYTES = 10 * 1024 * 1024; // 10MB
+const ALLOWED_MIME = new Set([
+  "image/jpeg",
+  "image/jpg",
+  "image/png",
+  "image/webp",
+  "application/pdf",
+]);
+const MAX_BYTES = 10 * 1024 * 1024; // 10 MB
 
 export class UploadError extends Error {}
 
-/**
- * Saves a customer-uploaded file (customization photo, bulk enquiry logo, etc).
- * Validates real MIME type from the file's magic bytes (not just the
- * extension/declared content-type, which can be spoofed), enforces a size
- * limit, and stores it via whichever STORAGE_DRIVER is configured.
- *
- * Returns a public URL that can be used in <img> tags / emails / admin UI.
- */
+// ---------------------------------------------------------------------------
+// saveUpload — legacy server-side upload path
+// ---------------------------------------------------------------------------
+// This function is the FALLBACK path used when:
+//   a) Cloudflare R2 is not configured yet (STORAGE_DRIVER != "r2"), OR
+//   b) The client could not use the presigned URL flow.
+//
+// Preferred path (Rule 1): Use /api/upload-url to get a presigned R2 URL and
+// let the browser upload directly — that path never touches this function.
+//
+// Drivers:
+//   STORAGE_DRIVER=r2  → Cloudflare R2 (or any S3-compatible store)
+//   STORAGE_DRIVER=s3  → AWS S3 (same implementation, different endpoint)
+//   (default)          → Local disk; falls back to Base64 Data URI on Vercel
+// ---------------------------------------------------------------------------
 export async function saveUpload(file: File, folder: string): Promise<string> {
   if (file.size > MAX_BYTES) {
-    throw new UploadError("File is too large. Maximum size is 10MB.");
+    throw new UploadError("File is too large. Maximum size is 10 MB.");
   }
 
   const buffer = Buffer.from(await file.arrayBuffer());
@@ -34,19 +47,24 @@ export async function saveUpload(file: File, folder: string): Promise<string> {
   const key = `${folder}/${filename}`;
 
   const driver = process.env.STORAGE_DRIVER ?? "local";
-  if (driver === "s3") {
+  if (driver === "r2" || driver === "s3") {
     return saveToS3(key, buffer, detectedMime);
   }
   return saveToLocalDisk(key, buffer, detectedMime);
 }
 
 // ---------------------------------------------------------------------------
-// Local disk driver — fine for development. On serverless hosts (Vercel)
+// Local disk driver — development only.
+// On Vercel (read-only filesystem) falls back to Base64 Data URI so the app
+// doesn't crash. Data URIs are stored directly in the database — this is fine
+// for a small number of uploads but will bloat your Neon free tier quickly.
+// Set up Cloudflare R2 to avoid this (see /api/upload-url).
 // ---------------------------------------------------------------------------
-// Local disk driver — fine for development. On serverless hosts (Vercel)
-// with read-only filesystems, falls back to Data URI if S3 is not configured.
-// ---------------------------------------------------------------------------
-async function saveToLocalDisk(key: string, buffer: Buffer, detectedMime: string): Promise<string> {
+async function saveToLocalDisk(
+  key: string,
+  buffer: Buffer,
+  detectedMime: string
+): Promise<string> {
   try {
     const uploadsDir = path.join(process.cwd(), "public", "uploads");
     const fullPath = path.join(uploadsDir, key);
@@ -55,22 +73,22 @@ async function saveToLocalDisk(key: string, buffer: Buffer, detectedMime: string
     return `/uploads/${key}`;
   } catch (err: unknown) {
     console.warn("[storage] Local disk save unavailable, using Data URI fallback:", err);
-    if (process.env.VERCEL || (err && typeof err === "object" && "code" in err && err.code === "EROFS")) {
-      // Fall back to Data URI so uploads work out-of-the-box on serverless
-      return `data:${detectedMime};base64,${buffer.toString("base64")}`;
-    }
-    // Also fallback if any disk write error occurs
+    // Base64 Data URI fallback — works everywhere, but is large.
     return `data:${detectedMime};base64,${buffer.toString("base64")}`;
   }
 }
 
 // ---------------------------------------------------------------------------
-// S3-compatible driver (AWS S3, Cloudflare R2, Backblaze B2, etc).
+// S3 / R2 driver — preferred for production.
 // ---------------------------------------------------------------------------
 function getS3Client() {
-  if (!process.env.STORAGE_ENDPOINT || !process.env.STORAGE_ACCESS_KEY || !process.env.STORAGE_SECRET_KEY) {
+  if (
+    !process.env.STORAGE_ENDPOINT ||
+    !process.env.STORAGE_ACCESS_KEY ||
+    !process.env.STORAGE_SECRET_KEY
+  ) {
     throw new UploadError(
-      "S3 storage is not configured. Set STORAGE_ENDPOINT, STORAGE_ACCESS_KEY, STORAGE_SECRET_KEY and STORAGE_BUCKET."
+      "Cloud storage is not configured. Set STORAGE_ENDPOINT, STORAGE_ACCESS_KEY, STORAGE_SECRET_KEY and STORAGE_BUCKET."
     );
   }
   return new S3Client({

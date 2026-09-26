@@ -7,7 +7,10 @@ import ProductCard from "@/components/product/ProductCard";
 import { CheckCircle2, Truck, ShieldCheck } from "lucide-react";
 import type { Metadata } from "next";
 
-export const dynamic = "force-dynamic";
+// Rule 4: ISR — Static Caching
+// Individual product pages are pre-rendered and served from Vercel's CDN edge.
+// Refreshes every 30 minutes — fast page loads for all visitors with minimal DB queries.
+export const revalidate = 1800; // Rebuild at most every 30 minutes
 
 export async function generateMetadata({
   params,

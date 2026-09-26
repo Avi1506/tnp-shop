@@ -120,13 +120,17 @@ export default function CustomizeCanvas({
   }, []);
 
   // ---- upload + place or replace photo -----------------------------------
+  // Rule 1 & 2: Try direct-to-R2 presigned upload first. This bypasses Vercel
+  // entirely — the file goes straight from the browser to Cloudflare R2, and
+  // only the short public URL is saved in the database.
+  // Falls back to the legacy /api/upload route when R2 is not configured.
   async function handleFileChange(e: React.ChangeEvent<HTMLInputElement>) {
     const file = e.target.files?.[0];
     if (!file) return;
     setUploading(true);
     let localUrl = "";
     try {
-      // 1. Create local Object URL for instant local canvas preview
+      // 1. Create local Object URL for instant local canvas preview (no network needed)
       localUrl = URL.createObjectURL(file);
       const canvas = fabricRef.current;
       if (canvas) {
@@ -161,28 +165,61 @@ export default function CustomizeCanvas({
         setHasUploadedPhoto(true);
       }
 
-      // 2. Upload to server storage
-      const fd = new FormData();
-      fd.append("file", file);
-      fd.append("folder", "customizations");
-      const res = await fetch("/api/upload", { method: "POST", body: fd });
-      const data = await res.json();
-      
-      if (!res.ok || !data.url) {
-        throw new Error(data.error || "Failed to upload photo to server.");
+      // 2. Try presigned R2 direct upload first (Rule 1)
+      let finalUrl = "";
+
+      const urlRes = await fetch("/api/upload-url", {
+        method: "POST",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify({
+          contentType: file.type,
+          contentLength: file.size,
+          folder: "customizations",
+        }),
+      });
+      const urlData = await urlRes.json() as {
+        fallbackToLegacy?: boolean;
+        uploadUrl?: string;
+        publicUrl?: string;
+      };
+
+      if (!urlData.fallbackToLegacy && urlData.uploadUrl && urlData.publicUrl) {
+        // Direct upload: file goes straight to Cloudflare R2 (no Vercel processing)
+        const putRes = await fetch(urlData.uploadUrl, {
+          method: "PUT",
+          headers: { "Content-Type": file.type },
+          body: file,
+        });
+        if (!putRes.ok) throw new Error("Direct upload to storage failed.");
+        finalUrl = urlData.publicUrl;
+      } else {
+        // Fallback: legacy multipart upload through Vercel (works without R2)
+        const fd = new FormData();
+        fd.append("file", file);
+        fd.append("folder", "customizations");
+        const res = await fetch("/api/upload", { method: "POST", body: fd });
+        const data = await res.json() as { url?: string; error?: string };
+        if (!res.ok || !data.url) {
+          throw new Error(data.error || "Failed to upload photo.");
+        }
+        finalUrl = data.url;
       }
 
-      const finalUrl = data.url;
-      setUploadedUrls((prev) => (config.fields.multipleImages ? [...prev, finalUrl] : [finalUrl]));
+      setUploadedUrls((prev) =>
+        config.fields.multipleImages ? [...prev, finalUrl] : [finalUrl]
+      );
       toast.success("Design updated! Drag, resize or rotate to fit perfectly.");
     } catch (err) {
       console.error("[upload error]", err);
-      toast.error(err instanceof Error ? err.message : "Could not upload photo. Please try again.");
+      toast.error(
+        err instanceof Error ? err.message : "Could not upload photo. Please try again."
+      );
     } finally {
       setUploading(false);
       if (fileInputRef.current) fileInputRef.current.value = "";
     }
   }
+
 
   // ---- fit/center active or custom image ----------------------------------
   function handleFitImage() {

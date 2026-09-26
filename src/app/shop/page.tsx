@@ -2,7 +2,10 @@ import { getCategories, getProducts } from "@/lib/catalog";
 import ProductCard from "@/components/product/ProductCard";
 import Link from "next/link";
 
-export const dynamic = "force-dynamic";
+// Rule 4: ISR — Static Caching
+// The shop listing page is cached at the CDN edge and refreshed every 10 minutes.
+// Category filter and search (?category=&q=) still work via URL params.
+export const revalidate = 600; // Rebuild at most every 10 minutes
 
 export const metadata = { title: "Shop All Products" };
 
