@@ -55,6 +55,11 @@ NEXT_PUBLIC_SITE_URL=https://thenoveltyprints.com
 
 ## 3. Recent Changes & Updates (Changelog)
 *So you know exactly what was just done:*
+- **Zazzle Flat Print Strip & 3D Multi-Angle Mockup Overhaul:**
+  - **Flat Print Strip Canvas (`7.5 in × 3.5 in`):** Following Zazzle's architecture, the editor is now a true unrolled horizontal wrap strip with green dashed safe-area borders and section guidelines (`Left Side`, `Center Front`, `Right Side`). Rulers indicate `7.5 in Width` and `3.5 in Height`.
+  - **Transparent Artwork Extraction:** When taking a preview snapshot, the canvas background is set to transparent and all guidelines/placeholders are hidden. Only the customer's photo and custom text are captured, preventing any nested background images.
+  - **Multi-Angle 3D Ceramic Overlay:** In the "Review & Mockup" tab, the customer's transparent design is composited directly onto the blank white ceramic mug with `mix-blend-multiply` at calibrated coordinates across 3 views (`Front View`, `Right Angle (Handle Left)`, `Left Angle (Handle Right)`). Ceramic reflections and gloss blend naturally through the artwork.
+  - **Catalog Badges:** Added subtle, dashed "YOUR IMAGE HERE" overlays to customizable product cards in the catalog and product detail pages, along with a "Personalize This Design" action button.
 - **Category Print Template System:**
   - Added `print_template` JSONB column to the `categories` database table (`shape`, `widthInches`, `heightInches`, `blankMockupUrl`, `printAreaOnMockup`).
   - Added full Print Template editor in the Admin Categories dashboard (`/admin/categories`) with quick presets:
@@ -69,8 +74,6 @@ NEXT_PUBLIC_SITE_URL=https://thenoveltyprints.com
   - Clicking or tapping the placeholder on the canvas directly opens the file upload dialog.
   - Uploaded photo automatically replaces the placeholder and scales to fit the exact printable area.
   - Added "Fit Area" and "Fill Area" quick adjustment buttons.
-  - Added shape support: draws circular dashed border for circle products and rectangular border for mugs/rectangles.
-  - Shows top quality badge with exact physical dimensions (e.g. `Exact Print Size: 7.5" × 3.5" (rectangle)`).
 - **Blank Mug Mockups Hosted on R2:**
   - Uploaded 5 high-resolution blank mug mockup photos from the user to Cloudflare R2 (`mockups/mug-front.jpg`, `mug-right.jpg`, `mug-left.jpg`, `mug-handle-left.jpg`, `mug-handle-right.jpg`).
 - **Cloudflare R2 Direct Integration:** Fixed CORS "Failed to fetch" errors by routing customer photo uploads directly through the `/api/upload` server endpoint.
@@ -80,8 +83,8 @@ NEXT_PUBLIC_SITE_URL=https://thenoveltyprints.com
 ---
 
 ## 4. Current Status & Next Steps
-- **Completed:** Category-level print template management, 7.5" × 3.5" mug template setup, Zazzle-style clickable placeholder on the canvas, and blank mockup integration.
-- **Optional future enhancement:** Multi-step tabbed customizer modal (Design / Review / 3D preview) if desired.
+- **Completed:** Authentic Zazzle flat wrap canvas (`7.5" × 3.5"`), pure transparent design extraction, photorealistic 3D ceramic multi-angle preview review, category print template dashboard, and catalog "Personalize" badges.
+
 
 ## Agent Instructions:
 1. When you boot up, review this file and `src/components/product/CustomizeCanvas.tsx` to understand the current Fabric.js implementation.
