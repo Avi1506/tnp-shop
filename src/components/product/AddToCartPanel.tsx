@@ -53,9 +53,10 @@ export default function AddToCartPanel({
         </p>
         <button
           onClick={() => router.push(`/products/${slug}/customize`)}
-          className="w-full bg-gold text-navy-dark font-semibold py-3.5 rounded-full hover:brightness-110 transition"
+          className="w-full bg-gold text-navy-dark font-semibold py-3.5 rounded-full hover:brightness-110 transition flex items-center justify-center gap-2 shadow-sm"
         >
-          Customize &amp; Buy
+          <Sparkles size={16} />
+          <span>Personalize This Design</span>
         </button>
       </div>
     );

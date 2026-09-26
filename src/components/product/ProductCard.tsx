@@ -24,6 +24,29 @@ export default function ProductCard({ product }: { product: Product }) {
           className="object-contain p-6 group-hover:scale-105 transition-transform duration-300"
           sizes="(max-width: 768px) 50vw, 25vw"
         />
+
+        {/* Zazzle-style 'YOUR IMAGE HERE' badge on customizable products */}
+        {product.customizable && product.customization?.printArea && (
+          <div
+            className="absolute pointer-events-none flex items-center justify-center p-2"
+            style={{
+              left: `${product.customization.printArea.xPct}%`,
+              top: `${product.customization.printArea.yPct}%`,
+              width: `${product.customization.printArea.widthPct}%`,
+              height: `${product.customization.printArea.heightPct}%`,
+            }}
+          >
+            <div
+              className={`w-full h-full flex flex-col items-center justify-center border border-dashed border-navy/40 bg-white/70 backdrop-blur-[1px] p-1 text-center shadow-xs ${
+                product.customization.shape === "circle" ? "rounded-full" : "rounded-md"
+              }`}
+            >
+              <span className="text-[9px] font-bold text-navy/80 leading-tight">YOUR IMAGE</span>
+              <span className="text-[8px] font-semibold text-gold leading-tight">HERE</span>
+            </div>
+          </div>
+        )}
+
         {product.isBestseller && (
           <span className="absolute top-3 left-3 bg-gold text-white text-[10px] font-bold tracking-wide uppercase px-2.5 py-1 rounded-full">
             Bestseller
@@ -31,8 +54,8 @@ export default function ProductCard({ product }: { product: Product }) {
         )}
         <WishlistButton productId={product.id} className="absolute top-3 right-3" />
         {product.customizable && (
-          <span className="absolute bottom-3 right-3 bg-white/90 text-navy text-[10px] font-semibold px-2 py-1 rounded-full flex items-center gap-1">
-            <Sparkles size={10} /> Customizable
+          <span className="absolute bottom-3 right-3 bg-white/90 text-navy text-[10px] font-semibold px-2 py-1 rounded-full flex items-center gap-1 shadow-2xs">
+            <Sparkles size={10} className="text-gold" /> Personalize
           </span>
         )}
       </div>

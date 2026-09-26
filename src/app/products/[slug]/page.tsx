@@ -40,7 +40,28 @@ export default async function ProductPage({ params }: { params: Promise<{ slug: 
     <div className="container-page py-10 md:py-14">
       <div className="grid md:grid-cols-2 gap-12">
         <div className={`relative aspect-square rounded-2xl overflow-hidden ${isPlaceholder ? "placeholder-card" : "bg-offwhite"}`}>
-          <Image src={image} alt={product.name} fill className="object-contain p-10" priority />
+          <Image src={image} alt={product.name} fill className="object-contain p-8 md:p-10" priority />
+          {product.customizable && product.customization?.printArea && (
+            <div
+              className="absolute pointer-events-none flex items-center justify-center p-3"
+              style={{
+                left: `${product.customization.printArea.xPct}%`,
+                top: `${product.customization.printArea.yPct}%`,
+                width: `${product.customization.printArea.widthPct}%`,
+                height: `${product.customization.printArea.heightPct}%`,
+              }}
+            >
+              <div
+                className={`w-full h-full flex flex-col items-center justify-center border-2 border-dashed border-gold/60 bg-white/75 backdrop-blur-[2px] p-2 text-center shadow-xs ${
+                  product.customization.shape === "circle" ? "rounded-full" : "rounded-xl"
+                }`}
+              >
+                <span className="text-xs sm:text-sm font-bold text-navy tracking-wide">YOUR IMAGE</span>
+                <span className="text-[10px] sm:text-xs font-semibold text-gold">HERE</span>
+                <span className="text-[9px] text-navy/50 mt-0.5">Click to Personalize</span>
+              </div>
+            </div>
+          )}
         </div>
 
         <div>
