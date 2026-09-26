@@ -165,50 +165,24 @@ export default function CustomizeCanvas({
         setHasUploadedPhoto(true);
       }
 
-      // 2. Try presigned R2 direct upload first (Rule 1)
-      let finalUrl = "";
-
-      const urlRes = await fetch("/api/upload-url", {
-        method: "POST",
-        headers: { "Content-Type": "application/json" },
-        body: JSON.stringify({
-          contentType: file.type,
-          contentLength: file.size,
-          folder: "customizations",
-        }),
-      });
-      const urlData = await urlRes.json() as {
-        fallbackToLegacy?: boolean;
-        uploadUrl?: string;
-        publicUrl?: string;
-      };
-
-      if (!urlData.fallbackToLegacy && urlData.uploadUrl && urlData.publicUrl) {
-        // Direct upload: file goes straight to Cloudflare R2 (no Vercel processing)
-        const putRes = await fetch(urlData.uploadUrl, {
-          method: "PUT",
-          headers: { "Content-Type": file.type },
-          body: file,
-        });
-        if (!putRes.ok) throw new Error("Direct upload to storage failed.");
-        finalUrl = urlData.publicUrl;
-      } else {
-        // Fallback: legacy multipart upload through Vercel (works without R2)
-        const fd = new FormData();
-        fd.append("file", file);
-        fd.append("folder", "customizations");
-        const res = await fetch("/api/upload", { method: "POST", body: fd });
-        const data = await res.json() as { url?: string; error?: string };
-        if (!res.ok || !data.url) {
-          throw new Error(data.error || "Failed to upload photo.");
-        }
-        finalUrl = data.url;
+      // 2. Upload file to storage via /api/upload
+      // This streams directly to Cloudflare R2 on the server via @aws-sdk/client-s3,
+      // completely avoiding browser CORS preflight ('Failed to fetch') errors while
+      // ensuring 100% of the image bytes are stored in Cloudflare R2.
+      const fd = new FormData();
+      fd.append("file", file);
+      fd.append("folder", "customizations");
+      const res = await fetch("/api/upload", { method: "POST", body: fd });
+      const data = await res.json() as { url?: string; error?: string };
+      if (!res.ok || !data.url) {
+        throw new Error(data.error || "Failed to upload photo.");
       }
 
+      const finalUrl = data.url;
       setUploadedUrls((prev) =>
         config.fields.multipleImages ? [...prev, finalUrl] : [finalUrl]
       );
-      toast.success("Design updated! Drag, resize or rotate to fit perfectly.");
+      toast.success("Photo uploaded successfully! Drag, resize or rotate to fit.");
     } catch (err) {
       console.error("[upload error]", err);
       toast.error(
@@ -616,11 +590,11 @@ export default function CustomizeCanvas({
 
         <button
           onClick={handleAddToCart}
-          disabled={submitting || !approved}
+          disabled={submitting || !approved || uploading}
           className="w-full bg-gold text-navy-dark font-semibold py-4 rounded-full hover:brightness-110 transition disabled:opacity-50 disabled:cursor-not-allowed flex items-center justify-center gap-2 text-base shadow-md active:scale-[0.99]"
         >
-          {submitting && <Loader2 size={18} className="animate-spin" />}
-          {submitting ? "Saving your design..." : "Add to Cart"}
+          {(submitting || uploading) && <Loader2 size={18} className="animate-spin" />}
+          {uploading ? "Uploading photo to cloud..." : submitting ? "Saving your design..." : "Add to Cart"}
         </button>
       </div>
     </div>
