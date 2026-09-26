@@ -15,6 +15,7 @@ export async function PATCH(req: NextRequest, { params }: { params: Promise<{ id
   if (body.slug !== undefined) updates.slug = body.slug;
   if (body.description !== undefined) updates.description = body.description;
   if (body.sortOrder !== undefined) updates.sortOrder = body.sortOrder;
+  if (body.printTemplate !== undefined) updates.printTemplate = body.printTemplate;
 
   const [updated] = await db.update(categories).set(updates).where(eq(categories.id, id)).returning();
   if (!updated) return NextResponse.json({ error: "Not found" }, { status: 404 });

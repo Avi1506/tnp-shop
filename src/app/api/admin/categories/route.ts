@@ -29,6 +29,7 @@ export async function POST(req: NextRequest) {
       slug: body.slug || slugify(body.name),
       description: body.description ?? "",
       sortOrder: body.sortOrder ?? 0,
+      printTemplate: body.printTemplate ?? null,
     })
     .returning();
 

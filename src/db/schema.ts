@@ -67,12 +67,30 @@ export const passwordResetTokens = pgTable("password_reset_tokens", {
 // CATALOG
 // ---------------------------------------------------------------------------
 
+// Print template defines the physical print dimensions and blank mockup for a
+// product category (e.g., Mug = 7.5" × 3.5" rectangle). Set in Admin → Categories.
+// When a product is customizable, the customizer reads these from the category.
+export type PrintTemplate = {
+  shape: "rectangle" | "circle" | "square";   // print area shape
+  widthInches: number;                         // physical print width
+  heightInches: number;                        // physical print height (same as width for circle/square)
+  blankMockupUrl: string;                      // URL of blank product photo (e.g., plain white mug)
+  // Where on the blank mockup image the print area sits (in % of the image dimensions)
+  printAreaOnMockup: {
+    xPct: number;      // left offset as % of image width
+    yPct: number;      // top offset as % of image height
+    widthPct: number;  // print area width as % of image width
+    heightPct: number; // print area height as % of image height
+  };
+};
+
 export const categories = pgTable("categories", {
   id: text("id").primaryKey().$defaultFn(() => crypto.randomUUID()),
   name: varchar("name", { length: 120 }).notNull(),
   slug: varchar("slug", { length: 140 }).notNull(),
   description: text("description"),
   sortOrder: integer("sort_order").notNull().default(0),
+  printTemplate: jsonb("print_template").$type<PrintTemplate | null>(),
   createdAt: timestamp("created_at").notNull().defaultNow(),
 }, (t) => [uniqueIndex("categories_slug_idx").on(t.slug)]);
 
@@ -80,6 +98,8 @@ export const categories = pgTable("categories", {
 export type CustomizationConfig = {
   mockupImage: string | null;
   printArea: { xPct: number; yPct: number; widthPct: number; heightPct: number };
+  shape?: "rectangle" | "circle" | "square";
+  dimensions?: { widthInches: number; heightInches: number };
   fields: {
     imageUpload: boolean;
     multipleImages: boolean;

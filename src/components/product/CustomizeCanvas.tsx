@@ -12,6 +12,8 @@ import {
   RotateCcw,
   Loader2,
   ImagePlus,
+  Maximize2,
+  Sparkles,
 } from "lucide-react";
 import type { CustomizationConfig } from "@/db/schema";
 
@@ -32,7 +34,7 @@ export default function CustomizeCanvas({
 }) {
   const canvasElRef = useRef<HTMLCanvasElement>(null);
   const fabricRef = useRef<fabric.Canvas | null>(null);
-  const guideRectRef = useRef<fabric.Rect | null>(null);
+  const guideRef = useRef<fabric.FabricObject | null>(null);
   const fileInputRef = useRef<HTMLInputElement>(null);
 
   const [uploading, setUploading] = useState(false);
@@ -50,6 +52,12 @@ export default function CustomizeCanvas({
   const { addLine } = useCart();
   const router = useRouter();
 
+  const shape = config.shape ?? "rectangle";
+  const dimensions = config.dimensions ?? {
+    widthInches: name.toLowerCase().includes("mug") || name.toLowerCase().includes("cup") ? 7.5 : 8,
+    heightInches: name.toLowerCase().includes("mug") || name.toLowerCase().includes("cup") ? 3.5 : 8,
+  };
+
   const printAreaBox = useCallback(() => {
     const pa = config.printArea;
     return {
@@ -59,6 +67,82 @@ export default function CustomizeCanvas({
       height: (pa.heightPct / 100) * CANVAS_SIZE,
     };
   }, [config.printArea]);
+
+  // Helper: draw Zazzle-style "Your Image Here" placeholder on canvas
+  const renderPlaceholder = useCallback((canvas: fabric.Canvas) => {
+    // Remove any existing placeholder objects
+    canvas.getObjects().forEach((obj) => {
+      if ((obj as unknown as { isPlaceholder?: boolean }).isPlaceholder) {
+        canvas.remove(obj);
+      }
+    });
+
+    const box = printAreaBox();
+    const isCircle = shape === "circle";
+    const radius = Math.min(box.width, box.height) / 2;
+
+    const bg = isCircle
+      ? new fabric.Circle({
+          left: box.left + radius,
+          top: box.top + radius,
+          radius: radius - 4,
+          originX: "center",
+          originY: "center",
+          fill: "rgba(255, 255, 255, 0.7)",
+          stroke: "rgba(184, 145, 42, 0.6)",
+          strokeDashArray: [6, 4],
+          strokeWidth: 1.5,
+          selectable: false,
+          hoverCursor: "pointer",
+        })
+      : new fabric.Rect({
+          left: box.left + 2,
+          top: box.top + 2,
+          width: box.width - 4,
+          height: box.height - 4,
+          rx: shape === "square" ? 6 : 8,
+          ry: shape === "square" ? 6 : 8,
+          fill: "rgba(255, 255, 255, 0.7)",
+          stroke: "rgba(184, 145, 42, 0.6)",
+          strokeDashArray: [6, 4],
+          strokeWidth: 1.5,
+          selectable: false,
+          hoverCursor: "pointer",
+        });
+
+    const titleText = new fabric.FabricText("YOUR IMAGE HERE", {
+      left: box.left + box.width / 2,
+      top: box.top + box.height / 2 - 10,
+      originX: "center",
+      originY: "center",
+      fontSize: Math.max(13, Math.min(20, box.width / 15)),
+      fontWeight: "bold",
+      fill: "#1B2A4A",
+      fontFamily: "Poppins",
+      selectable: false,
+      hoverCursor: "pointer",
+    });
+
+    const subText = new fabric.FabricText("Click or tap to upload photo", {
+      left: box.left + box.width / 2,
+      top: box.top + box.height / 2 + 14,
+      originX: "center",
+      originY: "center",
+      fontSize: Math.max(10, Math.min(12, box.width / 26)),
+      fontWeight: "normal",
+      fill: "#B8912A",
+      fontFamily: "Poppins",
+      selectable: false,
+      hoverCursor: "pointer",
+    });
+
+    (bg as unknown as { isPlaceholder?: boolean }).isPlaceholder = true;
+    (titleText as unknown as { isPlaceholder?: boolean }).isPlaceholder = true;
+    (subText as unknown as { isPlaceholder?: boolean }).isPlaceholder = true;
+
+    canvas.add(bg, titleText, subText);
+    canvas.renderAll();
+  }, [printAreaBox, shape]);
 
   // ---- init canvas -------------------------------------------------------
   useEffect(() => {
@@ -89,21 +173,55 @@ export default function CustomizeCanvas({
 
       // Draw the printable-area guide
       const pa = config.printArea;
-      const rect = new fabric.Rect({
-        left: (pa.xPct / 100) * CANVAS_SIZE,
-        top: (pa.yPct / 100) * CANVAS_SIZE,
-        width: (pa.widthPct / 100) * CANVAS_SIZE,
-        height: (pa.heightPct / 100) * CANVAS_SIZE,
-        fill: "transparent",
-        stroke: "#B8912A",
-        strokeDashArray: [6, 4],
-        strokeWidth: 1.5,
-        selectable: false,
-        evented: false,
-      });
-      guideRectRef.current = rect;
-      canvas.add(rect);
+      const isCircle = shape === "circle";
+      let guide: fabric.FabricObject;
+
+      if (isCircle) {
+        const radius = Math.min((pa.widthPct / 100) * CANVAS_SIZE, (pa.heightPct / 100) * CANVAS_SIZE) / 2;
+        guide = new fabric.Circle({
+          left: (pa.xPct / 100) * CANVAS_SIZE + radius,
+          top: (pa.yPct / 100) * CANVAS_SIZE + radius,
+          radius: radius,
+          originX: "center",
+          originY: "center",
+          fill: "transparent",
+          stroke: "#B8912A",
+          strokeDashArray: [6, 4],
+          strokeWidth: 1.5,
+          selectable: false,
+          evented: false,
+        });
+      } else {
+        guide = new fabric.Rect({
+          left: (pa.xPct / 100) * CANVAS_SIZE,
+          top: (pa.yPct / 100) * CANVAS_SIZE,
+          width: (pa.widthPct / 100) * CANVAS_SIZE,
+          height: (pa.heightPct / 100) * CANVAS_SIZE,
+          fill: "transparent",
+          stroke: "#B8912A",
+          strokeDashArray: [6, 4],
+          strokeWidth: 1.5,
+          selectable: false,
+          evented: false,
+        });
+      }
+
+      guideRef.current = guide;
+      canvas.add(guide);
+
+      // Add "Your Image Here" placeholder if image uploads are enabled
+      if (config.fields.imageUpload) {
+        renderPlaceholder(canvas);
+      }
+
       canvas.renderAll();
+    });
+
+    // Handle clicking the placeholder directly on canvas to trigger file picker
+    canvas.on("mouse:down", (opt) => {
+      if (opt.target && (opt.target as unknown as { isPlaceholder?: boolean }).isPlaceholder) {
+        fileInputRef.current?.click();
+      }
     });
 
     const onSelection = () => setHasSelection(true);
@@ -120,29 +238,24 @@ export default function CustomizeCanvas({
   }, []);
 
   // ---- upload + place or replace photo -----------------------------------
-  // Rule 1 & 2: Try direct-to-R2 presigned upload first. This bypasses Vercel
-  // entirely — the file goes straight from the browser to Cloudflare R2, and
-  // only the short public URL is saved in the database.
-  // Falls back to the legacy /api/upload route when R2 is not configured.
   async function handleFileChange(e: React.ChangeEvent<HTMLInputElement>) {
     const file = e.target.files?.[0];
     if (!file) return;
     setUploading(true);
     let localUrl = "";
     try {
-      // 1. Create local Object URL for instant local canvas preview (no network needed)
+      // 1. Create local Object URL for instant local canvas preview (no network lag)
       localUrl = URL.createObjectURL(file);
       const canvas = fabricRef.current;
       if (canvas) {
-        // If single image mode, remove existing custom images to cleanly replace design
-        if (!config.fields.multipleImages) {
-          const objects = canvas.getObjects();
-          objects.forEach((obj) => {
-            if ((obj as unknown as { isCustomImage?: boolean }).isCustomImage) {
-              canvas.remove(obj);
-            }
-          });
-        }
+        // Remove existing placeholders & previous custom image if single image mode
+        const objects = canvas.getObjects();
+        objects.forEach((obj) => {
+          const customObj = obj as unknown as { isPlaceholder?: boolean; isCustomImage?: boolean };
+          if (customObj.isPlaceholder || (!config.fields.multipleImages && customObj.isCustomImage)) {
+            canvas.remove(obj);
+          }
+        });
 
         const img = await fabric.FabricImage.fromURL(localUrl, { crossOrigin: "anonymous" });
         const box = printAreaBox();
@@ -165,10 +278,7 @@ export default function CustomizeCanvas({
         setHasUploadedPhoto(true);
       }
 
-      // 2. Upload file to storage via /api/upload
-      // This streams directly to Cloudflare R2 on the server via @aws-sdk/client-s3,
-      // completely avoiding browser CORS preflight ('Failed to fetch') errors while
-      // ensuring 100% of the image bytes are stored in Cloudflare R2.
+      // 2. Upload file to Cloudflare R2 via server endpoint
       const fd = new FormData();
       fd.append("file", file);
       fd.append("folder", "customizations");
@@ -182,7 +292,7 @@ export default function CustomizeCanvas({
       setUploadedUrls((prev) =>
         config.fields.multipleImages ? [...prev, finalUrl] : [finalUrl]
       );
-      toast.success("Photo uploaded successfully! Drag, resize or rotate to fit.");
+      toast.success("Photo placed! Drag, resize or rotate to fit.");
     } catch (err) {
       console.error("[upload error]", err);
       toast.error(
@@ -193,7 +303,6 @@ export default function CustomizeCanvas({
       if (fileInputRef.current) fileInputRef.current.value = "";
     }
   }
-
 
   // ---- fit/center active or custom image ----------------------------------
   function handleFitImage() {
@@ -218,6 +327,28 @@ export default function CustomizeCanvas({
     }
   }
 
+  function handleFillArea() {
+    const canvas = fabricRef.current;
+    if (!canvas) return;
+    const box = printAreaBox();
+    const active = canvas.getActiveObject() || canvas.getObjects().find((o) => (o as unknown as { isCustomImage?: boolean }).isCustomImage);
+    if (active && (active.type === "image" || (active as unknown as { isCustomImage?: boolean }).isCustomImage)) {
+      const scale = Math.max(box.width / (active.width ?? 1), box.height / (active.height ?? 1));
+      active.set({
+        left: box.left + box.width / 2,
+        top: box.top + box.height / 2,
+        originX: "center",
+        originY: "center",
+        scaleX: scale,
+        scaleY: scale,
+        angle: 0,
+      });
+      canvas.setActiveObject(active);
+      canvas.renderAll();
+      toast.success("Photo filled across print area");
+    }
+  }
+
   function handleRemovePhoto() {
     const canvas = fabricRef.current;
     if (!canvas) return;
@@ -228,9 +359,11 @@ export default function CustomizeCanvas({
       }
     });
     canvas.discardActiveObject();
-    canvas.renderAll();
     setUploadedUrls([]);
     setHasUploadedPhoto(false);
+
+    // Re-render placeholder so the area is clearly interactive
+    renderPlaceholder(canvas);
     toast.success("Photo removed");
   }
 
@@ -250,8 +383,8 @@ export default function CustomizeCanvas({
       originY: "center",
       fontFamily: font,
       fill: textColor,
-      fontSize: 28,
-      width: box.width,
+      fontSize: 26,
+      width: box.width * 0.9,
       textAlign: "center",
       cornerColor: "#B8912A",
       cornerStyle: "circle",
@@ -279,6 +412,7 @@ export default function CustomizeCanvas({
       if ((obj as unknown as { isCustomImage?: boolean }).isCustomImage) {
         setHasUploadedPhoto(false);
         setUploadedUrls([]);
+        renderPlaceholder(canvas);
       }
       canvas.remove(obj);
       canvas.discardActiveObject();
@@ -290,14 +424,16 @@ export default function CustomizeCanvas({
     const canvas = fabricRef.current;
     if (!canvas) return;
     canvas.getObjects().forEach((o) => {
-      if (o.selectable) canvas.remove(o);
+      if (o !== guideRef.current) canvas.remove(o);
     });
     canvas.discardActiveObject();
-    canvas.renderAll();
     setUploadedUrls([]);
     setHasUploadedPhoto(false);
     setTextValue("");
     setApproved(false);
+
+    // Re-add placeholder
+    renderPlaceholder(canvas);
   }
 
   // ---- submit: render final preview, upload it, add to cart -------------
@@ -315,19 +451,29 @@ export default function CustomizeCanvas({
 
     setSubmitting(true);
     try {
-      // Temporarily hide guide border to generate clean realistic finished preview
-      if (guideRectRef.current) {
-        guideRectRef.current.set({ opacity: 0 });
+      // Temporarily hide guide border & placeholder to generate clean finished preview
+      if (guideRef.current) {
+        guideRef.current.set({ opacity: 0 });
       }
+      canvas.getObjects().forEach((obj) => {
+        if ((obj as unknown as { isPlaceholder?: boolean }).isPlaceholder) {
+          obj.set({ opacity: 0 });
+        }
+      });
       canvas.discardActiveObject();
       canvas.renderAll();
 
       const dataUrl = canvas.toDataURL({ format: "png", quality: 0.95, multiplier: 1.5 });
 
-      // Restore guide border
-      if (guideRectRef.current) {
-        guideRectRef.current.set({ opacity: 1 });
+      // Restore guide border & placeholders
+      if (guideRef.current) {
+        guideRef.current.set({ opacity: 1 });
       }
+      canvas.getObjects().forEach((obj) => {
+        if ((obj as unknown as { isPlaceholder?: boolean }).isPlaceholder) {
+          obj.set({ opacity: 1 });
+        }
+      });
       canvas.renderAll();
 
       let previewImageUrl = dataUrl;
@@ -376,15 +522,29 @@ export default function CustomizeCanvas({
 
   return (
     <div className="flex flex-col md:grid md:grid-cols-[1fr_380px] gap-6 md:gap-10 w-full overflow-x-hidden">
-      {/* Canvas */}
+      {/* Canvas Area */}
       <div className="w-full">
+        {/* Dimensions & Quality Badge */}
+        <div className="flex items-center justify-between mb-2.5 px-1">
+          <div className="flex items-center gap-1.5 text-xs font-semibold text-navy">
+            <span className="inline-block w-2 h-2 rounded-full bg-teal animate-pulse" />
+            Live Preview Customizer
+          </div>
+          <div className="text-[11px] font-semibold text-navy/80 bg-white px-3 py-1 rounded-full border border-border shadow-xs flex items-center gap-1">
+            <Sparkles size={11} className="text-gold" />
+            <span>
+              Exact Print Size: {dimensions.widthInches}&quot; × {dimensions.heightInches}&quot; ({shape})
+            </span>
+          </div>
+        </div>
+
         <div className="w-full max-w-[520px] mx-auto rounded-2xl border border-border bg-offwhite p-2 sm:p-4 flex items-center justify-center overflow-hidden shadow-xs">
           <div className="relative w-full aspect-square flex items-center justify-center [&_.canvas-container]:!w-full [&_.canvas-container]:!h-full [&_canvas]:!w-full [&_canvas]:!h-full [&_canvas]:!max-w-full">
             <canvas ref={canvasElRef} className="rounded-lg shadow-inner touch-none" />
           </div>
         </div>
         <p className="text-[11px] sm:text-xs text-navy/60 mt-3 text-center px-2">
-          The dashed box shows the printable area. Touch/drag, scale (corner handles) or rotate your photo and text to fit.
+          The dashed guide shows your exact printable area. Drag, scale or rotate to position your photo.
         </p>
         <div className="flex flex-wrap justify-center gap-2 sm:gap-4 mt-4">
           <button
@@ -403,7 +563,7 @@ export default function CustomizeCanvas({
         </div>
       </div>
 
-      {/* Controls */}
+      {/* Controls Sidebar */}
       <div className="space-y-6 bg-white p-4 sm:p-6 rounded-2xl border border-border md:border-0 md:p-0 md:bg-transparent">
         <div>
           <h2 className="font-display text-xl sm:text-2xl font-semibold text-navy mb-1">{name}</h2>
@@ -448,28 +608,37 @@ export default function CustomizeCanvas({
                   ? "Processing photo..."
                   : hasUploadedPhoto
                   ? "Click to Replace / Change Photo"
-                  : "Click to upload JPG or PNG"}
+                  : "Click or tap to upload photo"}
               </span>
               <span className="text-[11px] text-navy/50">
-                {hasUploadedPhoto ? "Uploading a new photo will replace the design" : "You can resize, rotate and reposition it"}
+                {hasUploadedPhoto
+                  ? "Uploading a new photo will replace the design"
+                  : `Calibrated for ${dimensions.widthInches}" × ${dimensions.heightInches}" print`}
               </span>
             </button>
 
             {hasUploadedPhoto && (
-              <div className="flex items-center gap-2 mt-2.5">
+              <div className="grid grid-cols-3 gap-2 mt-2.5">
                 <button
                   type="button"
                   onClick={handleFitImage}
-                  className="flex-1 text-xs font-medium py-1.5 px-2.5 rounded-lg border border-border bg-white text-navy hover:border-gold transition"
+                  className="text-xs font-medium py-1.5 px-2 rounded-lg border border-border bg-white text-navy hover:border-gold transition flex items-center justify-center gap-1"
                 >
-                  Fit in Area
+                  <Maximize2 size={12} /> Fit Area
+                </button>
+                <button
+                  type="button"
+                  onClick={handleFillArea}
+                  className="text-xs font-medium py-1.5 px-2 rounded-lg border border-border bg-white text-navy hover:border-gold transition"
+                >
+                  Fill Area
                 </button>
                 <button
                   type="button"
                   onClick={handleRemovePhoto}
-                  className="text-xs font-medium py-1.5 px-2.5 rounded-lg border border-border bg-white text-navy/70 hover:text-red hover:border-red/40 transition"
+                  className="text-xs font-medium py-1.5 px-2 rounded-lg border border-border bg-white text-navy/70 hover:text-red hover:border-red/40 transition"
                 >
-                  Remove Photo
+                  Remove
                 </button>
               </div>
             )}
@@ -486,7 +655,7 @@ export default function CustomizeCanvas({
                 value={textValue}
                 onChange={(e) => setTextValue(e.target.value)}
                 maxLength={config.fields.maxTextLength}
-                placeholder="e.g. Happy Birthday Rahul"
+                placeholder="e.g. Best Dad Ever"
                 className="flex-1 text-sm border border-border rounded-lg px-3 py-2.5 outline-none focus:border-gold"
               />
               <button
@@ -523,7 +692,7 @@ export default function CustomizeCanvas({
             {config.fields.textColorChoice && (
               <div>
                 <p className="text-[11px] font-medium text-navy/50 mb-1.5">Select Text Colour:</p>
-                <div className="flex items-center gap-3 flex-wrap">
+                <div className="flex items-center gap-2">
                   {config.fields.colors.map((c) => (
                     <button
                       key={c}
@@ -531,11 +700,10 @@ export default function CustomizeCanvas({
                         setTextColor(c);
                         applyStyleToSelection({ color: c });
                       }}
-                      className={`h-8 w-8 rounded-full border-2 transition-transform active:scale-95 ${
-                        textColor === c ? "border-gold scale-110 shadow-md" : "border-white"
+                      className={`h-7 w-7 rounded-full border-2 transition active:scale-95 ${
+                        textColor === c ? "border-gold scale-110 shadow-xs" : "border-transparent"
                       }`}
-                      style={{ backgroundColor: c, boxShadow: "0 0 0 1px #E9E4D8" }}
-                      aria-label={c}
+                      style={{ backgroundColor: c }}
                     />
                   ))}
                 </div>
@@ -544,34 +712,15 @@ export default function CustomizeCanvas({
           </div>
         )}
 
-        {config.fields.sizeChoice && config.fields.sizes.length > 0 && (
-          <div>
-            <p className="text-xs font-semibold text-navy/60 uppercase tracking-wide mb-2">Select Size</p>
-            <div className="flex flex-wrap gap-2">
-              {config.fields.sizes.map((s) => (
-                <button
-                  key={s}
-                  onClick={() => setSize(s)}
-                  className={`text-sm px-4 py-2.5 rounded-lg border transition active:scale-95 font-medium ${
-                    size === s ? "bg-navy text-white border-navy" : "border-border text-navy hover:border-navy"
-                  }`}
-                >
-                  {s}
-                </button>
-              ))}
-            </div>
-          </div>
-        )}
-
         {config.fields.specialInstructions && (
           <div>
-            <p className="text-xs font-semibold text-navy/60 uppercase tracking-wide mb-2">
-              Special Instructions (optional)
-            </p>
+            <label className="text-xs font-semibold text-navy/60 uppercase tracking-wide mb-1.5 block">
+              Special Instructions (Optional)
+            </label>
             <textarea
+              rows={2}
               value={instructions}
               onChange={(e) => setInstructions(e.target.value)}
-              rows={3}
               placeholder="Anything else we should know?"
               className="w-full text-sm border border-border rounded-lg px-3 py-2.5 outline-none focus:border-gold resize-none"
             />
