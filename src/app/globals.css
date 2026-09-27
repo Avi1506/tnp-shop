@@ -2,13 +2,20 @@
 
 :root {
   --background: #ffffff;
-  --foreground: #1b2a4a;
+  --foreground: #212121;
 
-  /* Brand palette — matches the print catalogue */
+  /* Primary Brand & CRO Tokens */
+  --color-primary-cta: #E65100;
+  --color-primary-cta-hover: #BF3600;
+  --color-control-border: #757575;
+  --color-body-text: #212121;
+
+  /* Core Palette */
   --color-navy: #1b2a4a;
   --color-navy-dark: #10192e;
   --color-red: #a63446;
-  --color-gold: #ea733f;
+  --color-gold: #E65100;       /* Primary CTA token */
+  --color-gold-hover: #BF3600; /* Primary CTA hover token */
   --color-teal: #2f6f6b;
   --color-offwhite: #faf9f6;
   --color-border: #e9e4d8;
@@ -17,10 +24,15 @@
 @theme inline {
   --color-background: var(--background);
   --color-foreground: var(--foreground);
+  --color-primary-cta: var(--color-primary-cta);
+  --color-primary-cta-hover: var(--color-primary-cta-hover);
+  --color-control-border: var(--color-control-border);
+  --color-body-text: var(--color-body-text);
   --color-navy: var(--color-navy);
   --color-navy-dark: var(--color-navy-dark);
   --color-red: var(--color-red);
   --color-gold: var(--color-gold);
+  --color-gold-hover: var(--color-gold-hover);
   --color-teal: var(--color-teal);
   --color-offwhite: var(--color-offwhite);
   --color-border: var(--color-border);
@@ -30,7 +42,7 @@
 
 body {
   background: var(--background);
-  color: var(--foreground);
+  color: var(--color-body-text);
   font-family: var(--font-poppins), ui-sans-serif, system-ui, sans-serif;
   overflow-x: hidden;
 }
@@ -41,11 +53,11 @@ h1, h2, h3, .font-display {
 
 .placeholder-card {
   background: var(--color-offwhite);
-  border: 1.5px dashed var(--color-gold);
+  border: 1.5px dashed var(--color-primary-cta);
 }
 
 ::selection {
-  background: var(--color-gold);
+  background: var(--color-primary-cta);
   color: white;
 }
 
@@ -55,4 +67,46 @@ h1, h2, h3, .font-display {
   margin-right: auto;
   padding-left: 1.25rem;
   padding-right: 1.25rem;
+}
+
+/* Secondary control border standard (3:1 contrast ratio) */
+.control-border {
+  border-color: var(--color-control-border) !important;
+}
+
+/* Primary CTA standard class */
+.btn-primary-cta {
+  background-color: var(--color-primary-cta);
+  color: #ffffff;
+  transition: background-color 0.2s ease, transform 0.1s ease;
+}
+
+.btn-primary-cta:hover {
+  background-color: var(--color-primary-cta-hover);
+}
+
+/* Accessibility: Mobile Touch Targets (Minimum 48px x 48px with padding on mobile) */
+@media (max-width: 640px) {
+  button:not(.no-min-touch),
+  .btn-cta,
+  .btn-primary-cta,
+  a[role="button"],
+  .category-pill,
+  .touch-target-48 {
+    min-height: 48px;
+    min-width: 48px;
+  }
+
+  .btn-cta-mobile {
+    min-height: 48px;
+    padding: 14px 24px !important;
+  }
+
+  .swatch-touch {
+    min-width: 48px;
+    min-height: 48px;
+    display: inline-flex;
+    align-items: center;
+    justify-content: center;
+  }
 }

@@ -5,6 +5,7 @@ import { notFound } from "next/navigation";
 import AddToCartPanel from "@/components/product/AddToCartPanel";
 import ProductCard from "@/components/product/ProductCard";
 import { CheckCircle2, Truck, ShieldCheck } from "lucide-react";
+import ProductDetailB2B from "@/components/product/ProductDetailB2B";
 import type { Metadata } from "next";
 
 // Rule 4: ISR — Static Caching
@@ -94,6 +95,8 @@ export default async function ProductPage({ params }: { params: Promise<{ slug: 
               <ShieldCheck size={16} className="text-teal" /> 100% Quality Guaranteed &amp; Safe Checkout
             </p>
           </div>
+
+          <ProductDetailB2B basePrice={parseFloat(product.startingPrice)} />
 
           {product.description && (
             <div className="mt-8">

@@ -44,8 +44,8 @@ SMTP_PASSWORD=
 
 STORAGE_DRIVER=r2
 STORAGE_ENDPOINT=https://94812f866ab472d8e7b1fba61e17feb4.r2.cloudflarestorage.com
-STORAGE_ACCESS_KEY=5e6ba782cd2d75056b304ba09675d85a
-STORAGE_SECRET_KEY=98ea3742968d6f7117ae67d254a1c3cdc455979ad38c639da8c5a98fb9615bc2
+STORAGE_ACCESS_KEY=<set in deployment environment>
+STORAGE_SECRET_KEY=<set in deployment environment>
 STORAGE_BUCKET=tnp-uploads
 STORAGE_PUBLIC_URL=https://pub-58068b913fb2422c82982c94cf89d0b6.r2.dev
 NEXT_PUBLIC_SITE_URL=https://thenoveltyprints.com
@@ -90,4 +90,3 @@ NEXT_PUBLIC_SITE_URL=https://thenoveltyprints.com
 1. When you boot up, review this file and `src/components/product/CustomizeCanvas.tsx` to understand the current Fabric.js implementation.
 2. The user has given prior authorization to proceed proactively without asking for permission on every single code change ("yes for all my future request").
 3. Do not run `npm run dev` as a background serverless daemon unless strictly necessary; prefer writing code, verifying builds with `npm run build`, and committing/pushing.
-
