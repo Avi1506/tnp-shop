@@ -93,7 +93,20 @@ export default function AdminCategoriesPage() {
   }
 
   useEffect(() => {
-    void load();
+    let active = true;
+    fetch("/api/admin/categories")
+      .then((response) => response.json())
+      .then((data) => {
+        if (!active) return;
+        setCategories(data.categories ?? []);
+        setLoading(false);
+      })
+      .catch(() => {
+        if (active) setLoading(false);
+      });
+    return () => {
+      active = false;
+    };
   }, []);
 
   async function remove(id: string) {
