@@ -25,6 +25,19 @@ function preset(kind: "mug" | "bottle" | "tshirt" | "oversized" | "cushion" | "h
       printType: "cylindrical",
       shape: "rectangle",
       physical: { width: 7.5, height: 3.5, unit: "in", dpi: 300 },
+      cylindrical3d: {
+        modelRef: "procedural:mug-v1",
+        radius: 1.18,
+        bodyHeight: 2.45,
+        wrapCoverageDeg: 270,
+        wrapOffsetDeg: 0,
+        cameraDistance: 6.2,
+        cameraPitchDeg: 5,
+        baseColor: "#f7f7f4",
+        roughness: 0.34,
+        metalness: 0,
+        handleSide: "right",
+      },
       views: defaultViews("cylindrical", "/images/mockups/mug-front.jpg", {
         xPct: 30,
         yPct: 37,
@@ -51,6 +64,18 @@ function preset(kind: "mug" | "bottle" | "tshirt" | "oversized" | "cushion" | "h
       shape: "rectangle",
       physical: { width: 8, height: 3.5, unit: "in", dpi: 300 },
       safeArea: { topPct: 10, rightPct: 3, bottomPct: 10, leftPct: 3 },
+      cylindrical3d: {
+        modelRef: "procedural:bottle-v1",
+        radius: 0.92,
+        bodyHeight: 3.35,
+        wrapCoverageDeg: 300,
+        wrapOffsetDeg: 0,
+        cameraDistance: 6.4,
+        cameraPitchDeg: 3,
+        baseColor: "#ececec",
+        roughness: 0.32,
+        metalness: 0.42,
+      },
       views: defaultViews("cylindrical", "", { xPct: 30, yPct: 30, widthPct: 40, heightPct: 40 }),
     };
   }
