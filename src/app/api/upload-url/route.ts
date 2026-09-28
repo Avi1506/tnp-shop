@@ -3,6 +3,28 @@ import { S3Client, PutObjectCommand } from "@aws-sdk/client-s3";
 import { getSignedUrl } from "@aws-sdk/s3-request-presigner";
 import { v4 as uuid } from "uuid";
 
+// ---------------------------------------------------------------------------
+// Rule 1 & 2: Presigned R2 Upload URL
+// ---------------------------------------------------------------------------
+// Instead of streaming a file through Vercel (slow, uses serverless compute
+// time, and risks EROFS errors), we hand the browser a short-lived signed URL
+// and let it upload directly to Cloudflare R2.
+//
+// Flow:
+//   1. Browser → POST /api/upload-url   (just metadata, tiny payload)
+//   2. Server  → returns { uploadUrl, publicUrl }
+//   3. Browser → PUT <uploadUrl>        (file goes straight to R2, zero Vercel)
+//   4. Browser → saves only <publicUrl> (a short text string) in the DB
+//
+// Required Vercel environment variables:
+//   STORAGE_DRIVER=r2
+//   STORAGE_ENDPOINT=https://<account-id>.r2.cloudflarestorage.com
+//   STORAGE_ACCESS_KEY=<R2 Access Key ID>
+//   STORAGE_SECRET_KEY=<R2 Secret Access Key>
+//   STORAGE_BUCKET=<your bucket name>
+//   STORAGE_PUBLIC_URL=https://pub-<hash>.r2.dev   (your bucket's public URL)
+// ---------------------------------------------------------------------------
+
 const ALLOWED_TYPES = new Set([
   "image/jpeg",
   "image/jpg",
@@ -11,7 +33,7 @@ const ALLOWED_TYPES = new Set([
   "application/pdf",
 ]);
 
-const MAX_BYTES = 10 * 1024 * 1024;
+const MAX_BYTES = 10 * 1024 * 1024; // 10 MB
 
 function getR2Client() {
   const endpoint = process.env.STORAGE_ENDPOINT;
@@ -19,7 +41,7 @@ function getR2Client() {
   const secretAccessKey = process.env.STORAGE_SECRET_KEY;
 
   if (!endpoint || !accessKeyId || !secretAccessKey) {
-    return null;
+    return null; // R2 not configured — caller falls back to legacy upload
   }
 
   return new S3Client({
@@ -54,6 +76,9 @@ export async function POST(req: NextRequest) {
     }
 
     const r2 = getR2Client();
+
+    // If R2 is not configured, signal the client to fall back to the legacy
+    // /api/upload route that accepts a raw multipart upload.
     if (!r2) {
       return NextResponse.json({ fallbackToLegacy: true });
     }
@@ -67,6 +92,7 @@ export async function POST(req: NextRequest) {
     const safeFolder = folder.replace(/[^a-z0-9-_]/gi, "").slice(0, 40) || "customizations";
     const key = `${safeFolder}/${uuid()}.${ext}`;
 
+    // Generate a signed URL valid for 5 minutes
     const command = new PutObjectCommand({
       Bucket: bucket,
       Key: key,
