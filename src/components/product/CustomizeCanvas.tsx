@@ -24,7 +24,7 @@ import type {
   SavedDesignState,
 } from "@/db/schema";
 import { outputPixels, resolveProductTemplate, sourceStyle } from "@/lib/print-template";
-import CylindricalSurfacePreview from "@/components/product/CylindricalSurfacePreview";
+import Cylindrical3DPreview from "@/components/product/Cylindrical3DPreview";
 import { uploadFile } from "@/lib/client-upload";
 import { useCart } from "@/components/cart/CartContext";
 
@@ -749,46 +749,55 @@ export default function CustomizeCanvas({
 
           <div className="rounded-2xl border border-border bg-white p-4 sm:p-6 shadow-xs">
             <div className="relative mx-auto aspect-square w-full max-w-[520px] overflow-hidden rounded-xl bg-offwhite">
-              {selectedView?.mockupUrl ? <Image src={selectedView.mockupUrl} alt={selectedView.name} fill className="object-contain" priority /> : null}
-              {selectedView && artworkSnapshot && (
-                <div
-                  className="absolute"
-                  style={{
-                    left: `${selectedView.printArea.xPct}%`,
-                    top: `${selectedView.printArea.yPct}%`,
-                    width: `${selectedView.printArea.widthPct}%`,
-                    height: `${selectedView.printArea.heightPct}%`,
-                    transform: `rotate(${selectedView.rotation ?? 0}deg)`,
-                    transformOrigin: "center",
-                    ...(template.printType === "cylindrical"
-                      ? { overflow: "visible" }
-                      : previewMaskStyle(template)),
-                  }}
-                >
-                  {template.printType === "cylindrical" ? (
-                    <CylindricalSurfacePreview
-                      artworkUrl={artworkSnapshot}
-                      view={selectedView}
+              {template.printType === "cylindrical" && selectedView && artworkSnapshot ? (
+                <Cylindrical3DPreview
+                  artworkUrl={artworkSnapshot}
+                  template={template}
+                  view={selectedView}
+                />
+              ) : (
+                <>
+                  {selectedView?.mockupUrl ? (
+                    <Image
+                      src={selectedView.mockupUrl}
+                      alt={selectedView.name}
+                      fill
+                      className="object-contain"
+                      priority
                     />
-                  ) : (
-                    <div className="relative h-full w-full overflow-hidden">
-                      {/* eslint-disable-next-line @next/next/no-img-element */}
-                      <img
-                        src={artworkSnapshot}
-                        alt="Your design preview"
-                        className="absolute max-w-none"
-                        style={{
-                          ...sourceStyle(selectedView.source),
-                          objectFit: "fill",
-                        }}
-                      />
+                  ) : null}
+                  {selectedView && artworkSnapshot && (
+                    <div
+                      className="absolute"
+                      style={{
+                        left: `${selectedView.printArea.xPct}%`,
+                        top: `${selectedView.printArea.yPct}%`,
+                        width: `${selectedView.printArea.widthPct}%`,
+                        height: `${selectedView.printArea.heightPct}%`,
+                        transform: `rotate(${selectedView.rotation ?? 0}deg)`,
+                        transformOrigin: "center",
+                        ...previewMaskStyle(template),
+                      }}
+                    >
+                      <div className="relative h-full w-full overflow-hidden">
+                        {/* eslint-disable-next-line @next/next/no-img-element */}
+                        <img
+                          src={artworkSnapshot}
+                          alt="Your design preview"
+                          className="absolute max-w-none"
+                          style={{
+                            ...sourceStyle(selectedView.source),
+                            objectFit: "fill",
+                          }}
+                        />
+                      </div>
                     </div>
                   )}
-                </div>
+                </>
               )}
             </div>
             <p className="mt-3 text-center text-xs text-navy/60">
-              {selectedView?.name} · your design uses the same full-wrap artwork in every view.
+              {selectedView?.name} · {template.printType === "cylindrical" ? "3D wrap preview from your full flat artwork." : "preview from your saved design."}
             </p>
           </div>
 
