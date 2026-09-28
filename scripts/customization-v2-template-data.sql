@@ -7,8 +7,8 @@ UPDATE categories SET print_template = '{
 "safeArea":{"topPct":3,"rightPct":3,"bottomPct":3,"leftPct":3},"bleed":null,"maskUrl":null,
 "views":[
 {"id":"front","name":"Front","mockupUrl":"/images/mockups/mug-front.jpg","printArea":{"xPct":30,"yPct":37,"widthPct":43,"heightPct":44},"source":{"xPct":22.5,"yPct":0,"widthPct":55,"heightPct":100},"curvatureStrength":1.05,"perspectiveStrength":0,"edgeFalloff":0.30,"blendMode":"multiply"},
-{"id":"left","name":"Left","mockupUrl":"/images/mockups/mug-left.jpg","printArea":{"xPct":29,"yPct":37,"widthPct":44,"heightPct":44},"source":{"xPct":0,"yPct":0,"widthPct":55,"heightPct":100},"curvatureStrength":1.05,"perspectiveStrength":-0.12,"edgeFalloff":0.36,"blendMode":"multiply"},
-{"id":"right","name":"Right","mockupUrl":"/images/mockups/mug-right.jpg","printArea":{"xPct":29,"yPct":37,"widthPct":44,"heightPct":44},"source":{"xPct":45,"yPct":0,"widthPct":55,"heightPct":100},"curvatureStrength":1.05,"perspectiveStrength":0.12,"edgeFalloff":0.36,"blendMode":"multiply"}],
+{"id":"left","name":"Left","mockupUrl":"/images/mockups/mug-handle-left.jpg","printArea":{"xPct":29,"yPct":37,"widthPct":44,"heightPct":44},"source":{"xPct":0,"yPct":0,"widthPct":55,"heightPct":100},"curvatureStrength":1.05,"perspectiveStrength":-0.12,"edgeFalloff":0.36,"blendMode":"multiply"},
+{"id":"right","name":"Right","mockupUrl":"/images/mockups/mug-left.jpg","printArea":{"xPct":29,"yPct":37,"widthPct":44,"heightPct":44},"source":{"xPct":45,"yPct":0,"widthPct":55,"heightPct":100},"curvatureStrength":1.05,"perspectiveStrength":0.12,"edgeFalloff":0.36,"blendMode":"multiply"}],
 "widthInches":7.5,"heightInches":3.5,"blankMockupUrl":"/images/mockups/mug-front.jpg",
 "printAreaOnMockup":{"xPct":28,"yPct":28,"widthPct":44,"heightPct":52}
 }'::jsonb WHERE slug='mugs-drinkware';
