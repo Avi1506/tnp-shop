@@ -95,7 +95,7 @@ export default function Cylindrical3DScene({
             metalness,
           });
 
-          let printableRadius = radius;
+          const printableRadius = radius;
           let printableBodyHeight = bodyHeight;
           let printableCenterY = 0;
 
