@@ -4,6 +4,7 @@ import { createContext, useContext, useEffect, useMemo, useState, useCallback } 
 
 export type CartCustomization = {
   uploadedImages: string[];
+  originalUploads?: string[];
   text: string | null;
   font: string | null;
   textColor: string | null;
@@ -11,6 +12,34 @@ export type CartCustomization = {
   size: string | null;
   specialInstructions: string | null;
   previewImage: string | null;
+  previewImageUrl?: string | null;
+  printReadyArtworkUrl?: string | null;
+  designState?: {
+    version: 1;
+    fabric: Record<string, unknown>;
+    canvas: { width: number; height: number };
+    template: {
+      id: string;
+      version: number;
+      printType: "flat" | "cylindrical" | "shaped";
+      shape: "rectangle" | "square" | "circle" | "heart" | "custom-mask";
+    };
+    selectedVariant: {
+      size: string | null;
+      productColor: string | null;
+    };
+  } | null;
+  templateId?: string | null;
+  templateVersion?: number | null;
+  printOutput?: {
+    width: number;
+    height: number;
+    unit: "in" | "cm";
+    dpi: number;
+    widthPx: number;
+    heightPx: number;
+  } | null;
+  qualityWarnings?: string[];
   approved: boolean;
 } | null;
 
