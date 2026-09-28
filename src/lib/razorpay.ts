@@ -35,7 +35,10 @@ export function verifyRazorpaySignature(params: {
     .createHmac("sha256", secret)
     .update(`${params.orderId}|${params.paymentId}`)
     .digest("hex");
-  return crypto.timingSafeEqual(Buffer.from(expected), Buffer.from(params.signature));
+  const expectedBuffer = Buffer.from(expected);
+  const signatureBuffer = Buffer.from(params.signature);
+  if (expectedBuffer.length !== signatureBuffer.length) return false;
+  return crypto.timingSafeEqual(expectedBuffer, signatureBuffer);
 }
 
 /** Verify a Razorpay webhook payload signature (X-Razorpay-Signature header). */
@@ -43,9 +46,8 @@ export function verifyWebhookSignature(rawBody: string, signature: string): bool
   const secret = process.env.RAZORPAY_WEBHOOK_SECRET;
   if (!secret) return false;
   const expected = crypto.createHmac("sha256", secret).update(rawBody).digest("hex");
-  try {
-    return crypto.timingSafeEqual(Buffer.from(expected), Buffer.from(signature));
-  } catch {
-    return false;
-  }
+  const expectedBuffer = Buffer.from(expected);
+  const signatureBuffer = Buffer.from(signature);
+  if (expectedBuffer.length !== signatureBuffer.length) return false;
+  return crypto.timingSafeEqual(expectedBuffer, signatureBuffer);
 }
