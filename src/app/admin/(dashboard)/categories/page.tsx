@@ -25,13 +25,20 @@ function preset(kind: "mug" | "bottle" | "tshirt" | "oversized" | "cushion" | "h
       printType: "cylindrical",
       shape: "rectangle",
       physical: { width: 7.5, height: 3.5, unit: "in", dpi: 300 },
-      views: defaultViews("cylindrical", "/images/mockups/mug-front.jpg", { xPct: 28, yPct: 28, widthPct: 44, heightPct: 52 }).map((view) => ({
+      views: defaultViews("cylindrical", "/images/mockups/mug-front.jpg", {
+        xPct: 30,
+        yPct: 37,
+        widthPct: 43,
+        heightPct: 44,
+      }).map((view) => ({
         ...view,
+        curvatureStrength: 1.05,
+        edgeFalloff: view.id === "front" ? 0.3 : 0.36,
         mockupUrl:
           view.id === "left"
-            ? "/images/mockups/mug-handle-right.jpg"
+            ? "/images/mockups/mug-left.jpg"
             : view.id === "right"
-            ? "/images/mockups/mug-handle-left.jpg"
+            ? "/images/mockups/mug-right.jpg"
             : "/images/mockups/mug-front.jpg",
       })),
     };
