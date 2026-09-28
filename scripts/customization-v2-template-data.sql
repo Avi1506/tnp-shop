@@ -39,8 +39,8 @@ UPDATE products SET customization = customization || jsonb_build_object('templat
 "cylindrical3d":{"modelRef":"procedural:bottle-v1","radius":0.92,"bodyHeight":3.35,"wrapCoverageDeg":300,"wrapOffsetDeg":0,"cameraDistance":6.4,"cameraPitchDeg":3,"baseColor":"#ececec","roughness":0.32,"metalness":0.42},
 "views":[
 {"id":"front","name":"Front","mockupUrl":"/images/products/bottle_water.png","printArea":{"xPct":54,"yPct":44,"widthPct":37,"heightPct":43},"source":{"xPct":22.5,"yPct":0,"widthPct":55,"heightPct":100},"curvatureStrength":0.92,"perspectiveStrength":0,"edgeFalloff":0.32,"blendMode":"multiply","angleDeg":0},
-{"id":"left","name":"Left","mockupUrl":"/images/products/bottle_water.png","printArea":{"xPct":54,"yPct":44,"widthPct":37,"heightPct":43},"source":{"xPct":0,"yPct":0,"widthPct":55,"heightPct":100},"curvatureStrength":0.92,"perspectiveStrength":-0.10,"edgeFalloff":0.35,"blendMode":"multiply"},
-{"id":"right","name":"Right","mockupUrl":"/images/products/bottle_water.png","printArea":{"xPct":54,"yPct":44,"widthPct":37,"heightPct":43},"source":{"xPct":45,"yPct":0,"widthPct":55,"heightPct":100},"curvatureStrength":0.92,"perspectiveStrength":0.10,"edgeFalloff":0.35,"blendMode":"multiply"}]
+{"id":"left","name":"Left","mockupUrl":"/images/products/bottle_water.png","printArea":{"xPct":54,"yPct":44,"widthPct":37,"heightPct":43},"source":{"xPct":0,"yPct":0,"widthPct":55,"heightPct":100},"curvatureStrength":0.92,"perspectiveStrength":-0.10,"edgeFalloff":0.35,"blendMode":"multiply","angleDeg":-65},
+{"id":"right","name":"Right","mockupUrl":"/images/products/bottle_water.png","printArea":{"xPct":54,"yPct":44,"widthPct":37,"heightPct":43},"source":{"xPct":45,"yPct":0,"widthPct":55,"heightPct":100},"curvatureStrength":0.92,"perspectiveStrength":0.10,"edgeFalloff":0.35,"blendMode":"multiply","angleDeg":65}]
 }'::jsonb) WHERE slug='water-bottle';
 
 UPDATE products SET customization = customization || jsonb_build_object('templateOverride','{
