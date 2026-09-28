@@ -1,6 +1,6 @@
 "use client";
 
-import { useEffect, useState } from "react";
+import { useState } from "react";
 import { useRouter } from "next/navigation";
 import Image from "next/image";
 import { Loader2, Upload, Trash2 } from "lucide-react";
@@ -74,12 +74,6 @@ export default function ProductForm({
   });
   const [saving, setSaving] = useState(false);
   const [uploading, setUploading] = useState(false);
-
-  useEffect(() => {
-    if (form.customizable && !form.customization) {
-      setForm((f) => ({ ...f, customization: DEFAULT_CUSTOMIZATION }));
-    }
-  }, [form.customizable, form.customization]);
 
   async function handleImageUpload(e: React.ChangeEvent<HTMLInputElement>) {
     const file = e.target.files?.[0];
@@ -257,7 +251,13 @@ export default function ProductForm({
             <input
               type="checkbox"
               checked={form.customizable}
-              onChange={(e) => setForm((f) => ({ ...f, customizable: e.target.checked }))}
+              onChange={(e) =>
+                setForm((f) => ({
+                  ...f,
+                  customizable: e.target.checked,
+                  customization: e.target.checked ? f.customization ?? DEFAULT_CUSTOMIZATION : f.customization,
+                }))
+              }
               className="accent-gold h-4 w-4"
             />
             Enable live customization for this product
