@@ -14,7 +14,6 @@ import {
   Loader2,
   Sparkles,
   ArrowRight,
-  Maximize2,
 } from "lucide-react";
 import { trackEvent } from "@/lib/analytics";
 
@@ -56,6 +55,10 @@ export default function QuickPersonalizationDrawer({
   const { addLine } = useCart();
   const router = useRouter();
 
+  useEffect(() => () => {
+    if (previewUrl) URL.revokeObjectURL(previewUrl);
+  }, [previewUrl]);
+
   // Reset or initialize on open
   useEffect(() => {
     if (isOpen && product) {
@@ -75,14 +78,18 @@ export default function QuickPersonalizationDrawer({
   const activeProduct = product;
   const printArea = activeProduct.printArea || { xPct: 30, yPct: 35, widthPct: 40, heightPct: 40 };
 
-  // Automated DPI & Print Quality Checker (JS Logic)
+  // Estimate print resolution from the physical print area (browser files do not
+  // reliably expose embedded DPI metadata).
   function processFile(selectedFile: File) {
     if (!selectedFile.type.startsWith("image/")) {
       toast.error("Please upload a valid image (JPG, PNG, WebP)");
       return;
     }
 
+    if (previewUrl) URL.revokeObjectURL(previewUrl);
     setFile(selectedFile);
+    setImageDpiStatus(null);
+    setImageDimensions(null);
     const objectUrl = URL.createObjectURL(selectedFile);
     setPreviewUrl(objectUrl);
 
@@ -93,13 +100,12 @@ export default function QuickPersonalizationDrawer({
       const h = img.naturalHeight;
       setImageDimensions({ width: w, height: h });
 
-      // Physical print area standard:
-      // Minimum 300 DPI equivalent for typical 4 to 8 inch print areas (>= 1500px resolution)
-      const targetPixels = Math.max((activeProduct.dimensions?.widthInches || 6) * 250, 1400);
+      const requiredWidth = (activeProduct.dimensions?.widthInches || 6) * 300;
+      const requiredHeight = (activeProduct.dimensions?.heightInches || 4) * 300;
 
-      if (w >= targetPixels && h >= targetPixels * 0.5) {
+      if (w >= requiredWidth && h >= requiredHeight) {
         setImageDpiStatus("high");
-        toast.success("High Print Quality detected (300+ DPI equivalent)");
+        toast.success("High print quality for the estimated print area");
       } else {
         setImageDpiStatus("low");
         toast("Note: Image resolution is below 300 DPI", { icon: "⚠️" });
@@ -107,7 +113,8 @@ export default function QuickPersonalizationDrawer({
           productId: activeProduct.id,
           width: w,
           height: h,
-          required: targetPixels,
+          requiredWidth,
+          requiredHeight,
         });
       }
     };
@@ -140,9 +147,10 @@ export default function QuickPersonalizationDrawer({
         fd.append("folder", "customizations");
         const res = await fetch("/api/upload", { method: "POST", body: fd });
         const data = await res.json();
-        if (res.ok && data.url) {
-          uploadedFileUrl = data.url;
+        if (!res.ok || typeof data.url !== "string") {
+          throw new Error(data.error || "Artwork upload failed. Please try again.");
         }
+        uploadedFileUrl = data.url;
       }
 
       trackEvent("primary_cta_clicked", { label: "quick_personalization_add_to_cart" });
@@ -187,12 +195,12 @@ export default function QuickPersonalizationDrawer({
       />
 
       {/* Slide-over Drawer Panel */}
-      <div className="relative w-full max-w-xl bg-white h-full shadow-2xl z-10 flex flex-col overflow-y-auto">
+      <div role="dialog" aria-modal="true" aria-labelledby="quick-personalize-title" onKeyDown={(e) => e.key === "Escape" && onClose()} className="relative w-full max-w-xl bg-white h-full shadow-2xl z-10 flex flex-col overflow-y-auto">
         {/* Header */}
         <div className="p-4 sm:p-5 border-b border-border flex items-center justify-between sticky top-0 bg-white z-10">
           <div className="flex items-center gap-2">
             <span className="w-2.5 h-2.5 rounded-full bg-teal animate-pulse" />
-            <h2 className="font-display text-lg font-bold text-navy">Quick Personalize</h2>
+            <h2 id="quick-personalize-title" className="font-display text-lg font-bold text-navy">Quick Personalize</h2>
           </div>
           <button
             onClick={onClose}
@@ -285,12 +293,12 @@ export default function QuickPersonalizationDrawer({
               </label>
               {imageDpiStatus === "high" && (
                 <span className="inline-flex items-center gap-1 text-[11px] font-semibold text-teal bg-teal/10 px-2 py-0.5 rounded-full">
-                  <CheckCircle2 size={12} /> High Print Quality (300+ DPI)
+                  <CheckCircle2 size={12} /> High Print Quality (estimated at 300 DPI)
                 </span>
               )}
               {imageDpiStatus === "low" && (
                 <span className="inline-flex items-center gap-1 text-[11px] font-semibold text-[#E65100] bg-[#FFF3E0] px-2 py-0.5 rounded-full">
-                  <AlertTriangle size={12} /> Low Resolution (&lt;300 DPI)
+                  <AlertTriangle size={12} /> Low resolution — may print blurry
                 </span>
               )}
             </div>
@@ -330,7 +338,7 @@ export default function QuickPersonalizationDrawer({
               <p className="text-[11px] text-navy/50">
                 {imageDimensions
                   ? `${imageDimensions.width} × ${imageDimensions.height} px · Automated DPI Check Applied`
-                  : "Supports JPG, PNG or WebP · Minimum 300 DPI recommended"}
+                  : "JPG, PNG or WebP. Quality is estimated against the print area."}
               </p>
             </div>
           </div>

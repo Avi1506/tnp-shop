@@ -1,7 +1,7 @@
 "use client";
 
 import { useState, useEffect } from "react";
-import { X, Upload, CheckCircle2, MessageCircle, Loader2, Building2, Calendar, FileText, Send } from "lucide-react";
+import { X, Upload, CheckCircle2, MessageCircle, Loader2, Building2, Send } from "lucide-react";
 import toast from "react-hot-toast";
 import { trackEvent } from "@/lib/analytics";
 
@@ -15,10 +15,10 @@ export const CORPORATE_CATEGORIES = [
 ] as const;
 
 export const QUANTITY_TIERS = [
-  { id: "25-50", label: "25 – 50 units", discount: "15% Off" },
-  { id: "51-200", label: "51 – 200 units", discount: "20% Off" },
-  { id: "201-500", label: "201 – 500 units", discount: "30% Off" },
-  { id: "500+", label: "500+ units", discount: "Custom Enterprise Pricing" },
+  { id: "25-50", label: "25 – 50 units" },
+  { id: "51-200", label: "51 – 200 units" },
+  { id: "201-500", label: "201 – 500 units" },
+  { id: "500+", label: "500+ units" },
 ] as const;
 
 export default function CorporateQuoteDrawer({
@@ -45,13 +45,9 @@ export default function CorporateQuoteDrawer({
   const [submitted, setSubmitted] = useState(false);
 
   // Minimum lead time: 4 days from today
-  const minDeliveryDate = new Date(Date.now() + 4 * 24 * 60 * 60 * 1000)
-    .toISOString()
-    .split("T")[0];
-
-  useEffect(() => {
-    if (initialCategory) setCategory(initialCategory);
-  }, [initialCategory]);
+  const minDelivery = new Date();
+  minDelivery.setDate(minDelivery.getDate() + 4);
+  const minDeliveryDate = `${minDelivery.getFullYear()}-${String(minDelivery.getMonth() + 1).padStart(2, "0")}-${String(minDelivery.getDate()).padStart(2, "0")}`;
 
   // Lock body scroll when drawer is open
   useEffect(() => {
@@ -145,7 +141,7 @@ export default function CorporateQuoteDrawer({
       />
 
       {/* Slide-over Drawer Panel */}
-      <div className="relative w-full max-w-xl bg-white h-full shadow-2xl z-10 flex flex-col overflow-y-auto">
+      <div role="dialog" aria-modal="true" aria-labelledby="corporate-quote-title" onKeyDown={(e) => e.key === "Escape" && onClose()} className="relative w-full max-w-xl bg-white h-full shadow-2xl z-10 flex flex-col overflow-y-auto">
         {/* Header */}
         <div className="p-5 sm:p-6 border-b border-border flex items-center justify-between sticky top-0 bg-white z-10">
           <div className="flex items-center gap-2.5">
@@ -153,7 +149,7 @@ export default function CorporateQuoteDrawer({
               <Building2 size={20} />
             </div>
             <div>
-              <h2 className="font-display text-lg sm:text-xl font-bold text-navy">Get a Custom B2B Quote</h2>
+              <h2 id="corporate-quote-title" className="font-display text-lg sm:text-xl font-bold text-navy">Get a Custom B2B Quote</h2>
               <p className="text-xs text-navy/60">Bulk discounts, custom mockup &amp; priority production</p>
             </div>
           </div>
@@ -257,7 +253,7 @@ export default function CorporateQuoteDrawer({
                             {tier.label}
                           </span>
                         </div>
-                        <span className="text-[11px] font-semibold text-teal">{tier.discount}</span>
+                        <span className="text-[11px] font-semibold text-navy/60">Volume quote</span>
                       </label>
                     );
                   })}
@@ -285,12 +281,12 @@ export default function CorporateQuoteDrawer({
               <div>
                 <label className="text-xs font-bold text-navy uppercase tracking-wide block mb-1.5 flex items-center justify-between">
                   <span>4. Company Logo / Artwork (Optional)</span>
-                  <span className="text-[11px] font-normal text-navy/50">.AI, .EPS, .SVG, .PDF, .PNG</span>
+                  <span className="text-[11px] font-normal text-navy/50">AI, EPS, SVG, PDF, JPG, PNG, WebP · up to 10 MB</span>
                 </label>
                 <div className="border-2 border-dashed control-border rounded-xl p-4 text-center hover:bg-offwhite transition relative">
                   <input
                     type="file"
-                    accept=".ai,.eps,.svg,.pdf,.png,.jpg,.jpeg,.webp"
+                    accept=".ai,.eps,.svg,application/pdf,image/jpeg,image/png,image/webp,.pdf,.jpg,.jpeg,.png,.webp"
                     onChange={handleFileUpload}
                     disabled={uploading}
                     className="absolute inset-0 opacity-0 cursor-pointer w-full h-full"
@@ -309,7 +305,7 @@ export default function CorporateQuoteDrawer({
                     <div className="flex flex-col items-center gap-1 text-navy/60">
                       <Upload size={20} className="text-gold" />
                       <span className="text-xs font-semibold text-navy">Click or Drag &amp; Drop Logo / Design</span>
-                      <span className="text-[10px] text-navy/40">Vector or high-res image for mockup generation</span>
+                      <span className="text-[10px] text-navy/40">Vector or high-resolution image artwork</span>
                     </div>
                   )}
                 </div>

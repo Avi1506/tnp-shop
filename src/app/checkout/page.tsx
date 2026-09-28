@@ -36,13 +36,13 @@ export type SavedAddress = {
 };
 
 export default function CheckoutPage() {
-  const { lines, subtotal, clear } = useCart();
+  const { lines, subtotal, clear, updateQuantity } = useCart();
   const { data: session, status: authStatus } = useSession();
   const router = useRouter();
   const [loading, setLoading] = useState(false);
-  const [loadingAddresses, setLoadingAddresses] = useState(false);
   const [savedAddresses, setSavedAddresses] = useState<SavedAddress[]>([]);
   const [selectedAddressId, setSelectedAddressId] = useState<string | "new">("new");
+  const [checkoutStep, setCheckoutStep] = useState<1 | 2 | 3>(1);
 
   const [codConfig, setCodConfig] = useState<{
     enabled: boolean;
@@ -82,7 +82,6 @@ export default function CheckoutPage() {
   // Fetch saved addresses and pre-populate
   useEffect(() => {
     if (session?.user) {
-      setLoadingAddresses(true);
       fetch("/api/account/addresses")
         .then((r) => r.json())
         .then((d) => {
@@ -112,8 +111,7 @@ export default function CheckoutPage() {
             }));
           }
         })
-        .catch(() => {})
-        .finally(() => setLoadingAddresses(false));
+        .catch(() => {});
     }
   }, [session]);
 
@@ -238,6 +236,15 @@ export default function CheckoutPage() {
       <div className="container-page py-10 md:py-14">
         <h1 className="text-2xl md:text-3xl font-semibold text-navy mb-8">Checkout</h1>
 
+        <ol aria-label="Checkout progress" className="mb-8 grid grid-cols-3 gap-2">
+          {["Review & customize", "Shipping", "Payment"].map((label, index) => {
+            const step = (index + 1) as 1 | 2 | 3;
+            return <li key={label} aria-current={checkoutStep === step ? "step" : undefined} className={`rounded-xl border p-3 text-center text-xs sm:text-sm font-semibold ${checkoutStep === step ? "border-gold bg-gold/10 text-navy" : "border-border text-navy/55"}`}>
+              <span className="mr-1.5 inline-flex h-6 w-6 items-center justify-center rounded-full bg-white">{step}</span>{label}
+            </li>;
+          })}
+        </ol>
+
         {!session?.user && authStatus !== "loading" && (
           <div className="mb-8 p-4 bg-offwhite border border-border rounded-xl flex flex-col sm:flex-row sm:items-center justify-between gap-3">
             <div>
@@ -256,9 +263,33 @@ export default function CheckoutPage() {
 
         <div className="grid md:grid-cols-[1fr_360px] gap-10">
           <form onSubmit={handlePay} className="space-y-6">
+            {checkoutStep === 1 && <section aria-labelledby="checkout-review-title" className="space-y-4">
+              <h2 id="checkout-review-title" className="font-semibold text-navy text-lg">Step 1: Product customization &amp; quantity</h2>
+              <p className="text-sm text-navy/60">Review each item and its personalization before entering delivery details.</p>
+              {lines.map((line) => <article key={line.lineId} className="flex gap-4 rounded-xl border border-border p-4">
+                <div className="h-20 w-20 shrink-0 overflow-hidden rounded-lg bg-offwhite">
+                  {/* eslint-disable-next-line @next/next/no-img-element */}
+                  <img src={line.customization?.previewImage || line.image} alt="" className="h-full w-full object-contain" />
+                </div>
+                <div className="min-w-0 flex-1">
+                  <h3 className="font-semibold text-navy">{line.name}</h3>
+                  {line.customization && <p className="mt-1 text-xs text-navy/60">Personalized{line.customization.text ? ` · ${line.customization.text}` : ""}{line.customization.specialInstructions ? ` · ${line.customization.specialInstructions}` : ""}</p>}
+                  <div className="mt-3 flex flex-wrap items-center justify-between gap-3">
+                    <label className="flex items-center gap-2 text-xs font-medium text-navy">Quantity
+                    <input aria-label={`${line.name} quantity`} type="number" min={1} max={50} value={line.quantity} onChange={(event) => updateQuantity(line.lineId, Math.min(50, Math.max(1, Number(event.target.value) || 1)))} className="w-20 rounded-lg border control-border px-2 py-2" />
+                    </label>
+                    <strong className="text-sm text-navy">{formatINR(line.unitPrice * line.quantity)}</strong>
+                  </div>
+                </div>
+              </article>)}
+              <div className="flex justify-end border-t border-border pt-4 text-base font-bold text-navy">Subtotal: {formatINR(subtotal)}</div>
+              <button type="button" onClick={() => setCheckoutStep(2)} className="w-full btn-primary-cta rounded-full py-3.5 font-semibold touch-target-48 btn-cta-mobile">Continue to Shipping</button>
+            </section>}
+
+            {checkoutStep === 2 && <>
             <div className="space-y-4">
               <div className="flex items-center justify-between">
-                <h2 className="font-semibold text-navy text-lg">Shipping Address</h2>
+                <h2 className="font-semibold text-navy text-lg">Step 2: Shipping &amp; delivery</h2>
                 {session?.user && (
                   <span className="text-xs text-navy/50">{session.user.email}</span>
                 )}
@@ -404,6 +435,24 @@ export default function CheckoutPage() {
               className="w-full text-sm border border-border rounded-lg px-3 py-2.5 outline-none focus:border-gold resize-none"
             />
 
+            <div className="flex gap-3">
+              <button type="button" onClick={() => setCheckoutStep(1)} className="min-h-12 flex-1 rounded-full border control-border px-6 py-3.5 font-semibold text-navy">Back</button>
+              <button type="button" onClick={() => {
+                if (![address.fullName, address.phone, address.line1, address.city, address.pincode].every((value) => value.trim())) {
+                  toast.error("Please complete the required shipping details.");
+                  return;
+                }
+                setCheckoutStep(3);
+              }} className="flex-1 btn-primary-cta rounded-full py-3.5 font-semibold touch-target-48 btn-cta-mobile">Continue to Payment</button>
+            </div>
+            </>}
+
+            {checkoutStep === 3 && <>
+            <h2 className="font-semibold text-navy text-lg">Step 3: Payment &amp; order confirmation</h2>
+            <div className="rounded-xl bg-offwhite p-4 text-sm text-navy">
+              <p className="font-semibold">Delivering to {address.fullName}</p>
+              <p className="mt-1 text-xs text-navy/70">{address.line1}, {address.city}, {address.state} {address.pincode} · {address.phone}</p>
+            </div>
             <div className="space-y-3">
               <h2 className="font-semibold text-navy">Payment Method</h2>
               <div className={`grid grid-cols-1 ${codConfig.enabled ? "sm:grid-cols-2" : ""} gap-3`}>
@@ -476,9 +525,11 @@ export default function CheckoutPage() {
                 ? `Place COD Order (${formatINR(subtotal)})`
                 : `Pay ${formatINR(subtotal)} Securely`}
             </button>
+            <button type="button" onClick={() => setCheckoutStep(2)} className="w-full min-h-12 rounded-full border control-border px-6 py-3 font-semibold text-navy">Back to Shipping</button>
+            </>}
           </form>
 
-          <div className="border border-border rounded-2xl p-6 h-fit">
+          {checkoutStep !== 1 && <div className="border border-border rounded-2xl p-6 h-fit">
             <h2 className="font-semibold text-navy mb-4">Order Summary</h2>
             <div className="space-y-3 mb-4">
               {lines.map((l) => (
@@ -494,7 +545,7 @@ export default function CheckoutPage() {
               <span>Total</span>
               <span>{formatINR(subtotal)}</span>
             </div>
-          </div>
+          </div>}
         </div>
       </div>
     </>

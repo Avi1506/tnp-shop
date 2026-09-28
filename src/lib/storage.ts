@@ -10,6 +10,8 @@ const ALLOWED_MIME = new Set([
   "image/png",
   "image/webp",
   "application/pdf",
+  // Untrusted vector art is served as a non-renderable download attachment.
+  "application/octet-stream",
 ]);
 const MAX_BYTES = 10 * 1024 * 1024; // 10 MB
 
@@ -36,10 +38,10 @@ export async function saveUpload(file: File, folder: string): Promise<string> {
   }
 
   const buffer = Buffer.from(await file.arrayBuffer());
-  const detectedMime = sniffMime(buffer) ?? file.type;
+  const detectedMime = sniffMime(buffer) ?? sniffOpaqueVector(buffer, file.name);
 
-  if (!ALLOWED_MIME.has(detectedMime)) {
-    throw new UploadError("Unsupported file type. Please upload a JPG, PNG, WEBP or PDF.");
+  if (!detectedMime || !ALLOWED_MIME.has(detectedMime)) {
+    throw new UploadError("Unsupported file type. Upload AI, EPS, SVG, PDF, JPG, PNG or WebP artwork.");
   }
 
   const ext = extensionFor(detectedMime);
@@ -112,6 +114,9 @@ async function saveToS3(key: string, buffer: Buffer, contentType: string): Promi
       Key: key,
       Body: buffer,
       ContentType: contentType,
+      ...(contentType === "application/octet-stream"
+        ? { ContentDisposition: `attachment; filename="${path.basename(key)}"` }
+        : {}),
     })
   );
 
@@ -130,6 +135,21 @@ function sniffMime(buffer: Buffer): string | null {
   if (hex === "89504e47") return "image/png";
   if (buffer.subarray(0, 4).toString("ascii") === "RIFF") return "image/webp";
   if (buffer.subarray(0, 4).toString("ascii") === "%PDF") return "application/pdf";
+  return null;
+}
+
+function sniffOpaqueVector(buffer: Buffer, filename: string): string | null {
+  const extension = filename.toLowerCase().split(".").pop();
+  if ((extension === "ai" || extension === "eps") &&
+      buffer.subarray(0, 10).toString("ascii").startsWith("%!PS-Adobe")) {
+    return "application/octet-stream";
+  }
+  if (extension === "svg" && !buffer.includes(0)) {
+    const text = buffer.toString("utf8").replace(/^\uFEFF/, "").trim();
+    if (/^(?:<\?xml[\s\S]*?\?>\s*)?<svg\b/i.test(text)) {
+      return "application/octet-stream";
+    }
+  }
   return null;
 }
 
