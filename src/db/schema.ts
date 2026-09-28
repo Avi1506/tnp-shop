@@ -88,6 +88,15 @@ export type MockupView = {
   printArea: PercentBox;
   source: PercentBox;
   rotation?: number;
+
+  // Preview-only surface mapping. These never affect print-ready artwork.
+  curvatureStrength?: number; // 0 = flat, 1 = normal cylinder, >1 = stronger curve
+  perspectiveStrength?: number; // -1..1, shifts/compresses the visible surface by angle
+  edgeFalloff?: number; // 0..1, softly hides the far cylinder edges
+  surfaceMaskUrl?: string | null; // optional alpha mask for handle/body occlusion
+  blendMode?: "normal" | "multiply";
+
+  // Legacy preview transform retained for compatibility with older JSONB templates.
   transform?: {
     scaleX?: number;
     scaleY?: number;
