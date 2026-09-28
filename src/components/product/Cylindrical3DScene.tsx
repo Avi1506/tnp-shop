@@ -3,6 +3,25 @@
 import { useEffect, useRef } from "react";
 import type { MockupView, PrintTemplate } from "@/db/schema";
 
+type RendererLike = {
+  domElement: HTMLCanvasElement;
+  outputColorSpace: unknown;
+  shadowMap: { enabled: boolean; type: unknown };
+  capabilities: { getMaxAnisotropy(): number };
+  setPixelRatio(value: number): void;
+  setSize(width: number, height: number, updateStyle: boolean): void;
+  render(scene: unknown, camera: unknown): void;
+  dispose(): void;
+};
+
+type TextureLike = {
+  colorSpace: unknown;
+  wrapS: unknown;
+  wrapT: unknown;
+  anisotropy: number;
+  dispose(): void;
+};
+
 type Props = {
   artworkUrl: string;
   template: PrintTemplate;
@@ -40,7 +59,7 @@ export default function Cylindrical3DScene({
     }
 
     let disposed = false;
-    let renderer: import("three").WebGLRenderer | null = null;
+    let renderer: RendererLike | null = null;
     let resizeObserver: ResizeObserver | null = null;
 
     void import("three")
@@ -251,7 +270,7 @@ export default function Cylindrical3DScene({
           textureLoader.setCrossOrigin("anonymous");
           textureLoader.load(
             artworkUrl,
-            (texture) => {
+            (texture: TextureLike) => {
               if (disposed) {
                 texture.dispose();
                 return;
