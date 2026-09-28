@@ -7,12 +7,16 @@ import Link from "next/link";
 import { Loader2 } from "lucide-react";
 import toast from "react-hot-toast";
 
+function safeCallbackUrl(value: string | null) {
+  return value?.startsWith("/") && !value.startsWith("//") ? value : "/account";
+}
+
 function RegisterForm() {
   const [form, setForm] = useState({ name: "", email: "", phone: "", password: "" });
   const [loading, setLoading] = useState(false);
   const router = useRouter();
   const params = useSearchParams();
-  const callbackUrl = params.get("callbackUrl") || "/account";
+  const callbackUrl = safeCallbackUrl(params.get("callbackUrl"));
 
   async function handleSubmit(e: React.FormEvent) {
     e.preventDefault();
