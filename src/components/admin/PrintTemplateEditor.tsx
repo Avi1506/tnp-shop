@@ -33,6 +33,7 @@ export default function PrintTemplateEditor({
   const template = normalizePrintTemplate(value);
   const [selectedViewId, setSelectedViewId] = useState(template.views[0]?.id ?? "front");
   const [uploading, setUploading] = useState<string | null>(null);
+  const [showTestArtwork, setShowTestArtwork] = useState(true);
   const previewRef = useRef<HTMLDivElement>(null);
   const dragRef = useRef<DragState | null>(null);
 
@@ -236,7 +237,12 @@ export default function PrintTemplateEditor({
               </button>
             ))}
           </div>
-          <button type="button" onClick={addView} className="rounded-lg border border-border bg-white px-2.5 py-1.5 text-xs font-semibold text-navy"><Plus size={12} className="inline" /> View</button>
+          <div className="flex gap-2">
+            <button type="button" onClick={() => setShowTestArtwork((current) => !current)} className="rounded-lg border border-border bg-white px-2.5 py-1.5 text-xs font-semibold text-navy">
+              {showTestArtwork ? "Hide Test Artwork" : "Preview Test Artwork"}
+            </button>
+            <button type="button" onClick={addView} className="rounded-lg border border-border bg-white px-2.5 py-1.5 text-xs font-semibold text-navy"><Plus size={12} className="inline" /> View</button>
+          </div>
         </div>
 
         {selectedView && (
@@ -259,7 +265,7 @@ export default function PrintTemplateEditor({
               )}
               <div
                 onPointerDown={(event) => beginDrag(event, "move")}
-                className="absolute cursor-move border-2 border-dashed border-gold bg-gold/10"
+                className="absolute cursor-move overflow-hidden border-2 border-dashed border-gold bg-gold/10"
                 style={{
                   left: `${selectedView.printArea.xPct}%`,
                   top: `${selectedView.printArea.yPct}%`,
@@ -267,6 +273,11 @@ export default function PrintTemplateEditor({
                   height: `${selectedView.printArea.heightPct}%`,
                 }}
               >
+                {showTestArtwork && (
+                  <div className="absolute inset-0 flex items-center justify-center bg-[linear-gradient(135deg,rgba(184,145,42,.25)_25%,transparent_25%,transparent_50%,rgba(184,145,42,.25)_50%,rgba(184,145,42,.25)_75%,transparent_75%)] bg-[length:18px_18px]">
+                    <span className="rounded bg-white/90 px-2 py-1 text-[10px] font-bold text-navy shadow-sm">TNP TEST ARTWORK</span>
+                  </div>
+                )}
                 <span className="absolute left-1 top-1 rounded bg-white/90 px-1.5 py-0.5 text-[9px] font-semibold text-navy">PRINT AREA</span>
                 <button type="button" aria-label="Resize print area" onPointerDown={(event) => { event.stopPropagation(); beginDrag(event, "resize"); }} className="absolute -bottom-2 -right-2 h-5 w-5 cursor-se-resize rounded-full border-2 border-white bg-gold shadow" />
               </div>
