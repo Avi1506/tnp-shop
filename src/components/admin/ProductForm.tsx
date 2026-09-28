@@ -6,6 +6,8 @@ import Image from "next/image";
 import { Loader2, Upload, Trash2 } from "lucide-react";
 import toast from "react-hot-toast";
 import type { CustomizationConfig, PrintTemplate } from "@/db/schema";
+import PrintTemplateEditor from "@/components/admin/PrintTemplateEditor";
+import { normalizePrintTemplate } from "@/lib/print-template";
 
 type Category = { id: string; name: string; printTemplate?: PrintTemplate | null };
 
@@ -265,39 +267,79 @@ export default function ProductForm({
         {form.customizable && form.customization && (
           <div className="space-y-4 pt-2 border-t border-border">
             {(() => {
-              const cat = categories.find((c) => c.id === form.categoryId);
+              const cat = categories.find((category) => category.id === form.categoryId);
               if (!cat?.printTemplate) return null;
-              const pt = cat.printTemplate;
+              const categoryTemplate = normalizePrintTemplate(cat.printTemplate);
+              const hasOverride = Boolean(form.customization?.templateOverride);
               return (
-                <div className="bg-gold/10 border border-gold/30 rounded-xl p-3 flex items-center justify-between">
-                  <div>
-                    <p className="text-xs font-semibold text-navy">
-                      Category Print Template Available: {pt.widthInches}&quot; × {pt.heightInches}&quot; ({pt.shape})
-                    </p>
-                    <p className="text-[11px] text-navy/60">
-                      Standard {cat.name} layout with calibrated print area and blank mockup.
-                    </p>
+                <div className="space-y-3">
+                  <div className="bg-gold/10 border border-gold/30 rounded-xl p-3 flex flex-col sm:flex-row sm:items-center justify-between gap-3">
+                    <div>
+                      <p className="text-xs font-semibold text-navy">
+                        Category Template: {categoryTemplate.printType} · {categoryTemplate.physical.width} × {categoryTemplate.physical.height} {categoryTemplate.physical.unit} · {categoryTemplate.physical.dpi} DPI
+                      </p>
+                      <p className="text-[11px] text-navy/60">
+                        {hasOverride ? "This product currently overrides the category template." : "This product inherits the category template."}
+                      </p>
+                    </div>
+                    <div className="flex gap-2">
+                      {hasOverride ? (
+                        <button
+                          type="button"
+                          onClick={() =>
+                            setForm((previous) => ({
+                              ...previous,
+                              customization: previous.customization && {
+                                ...previous.customization,
+                                templateOverride: null,
+                              },
+                            }))
+                          }
+                          className="text-xs bg-white border border-border text-navy font-semibold px-3 py-1.5 rounded-lg"
+                        >
+                          Use Category Template
+                        </button>
+                      ) : (
+                        <button
+                          type="button"
+                          onClick={() =>
+                            setForm((previous) => ({
+                              ...previous,
+                              customization: previous.customization && {
+                                ...previous.customization,
+                                templateOverride: {
+                                  ...categoryTemplate,
+                                  templateVersion: categoryTemplate.templateVersion + 1,
+                                  views: categoryTemplate.views.map((view) => ({
+                                    ...view,
+                                    mockupUrl: previous.customization?.mockupImage || view.mockupUrl,
+                                  })),
+                                },
+                              },
+                            }))
+                          }
+                          className="text-xs bg-gold text-navy-dark font-semibold px-3 py-1.5 rounded-lg"
+                        >
+                          Create Product Override
+                        </button>
+                      )}
+                    </div>
                   </div>
-                  <button
-                    type="button"
-                    onClick={() => {
-                      setForm((prev) => ({
-                        ...prev,
-                        customization: prev.customization && {
-                          ...prev.customization,
-                          mockupImage: pt.blankMockupUrl || prev.customization.mockupImage,
-                          printArea: { ...pt.printAreaOnMockup },
-                          shape: pt.shape,
-                          dimensions: { widthInches: pt.widthInches, heightInches: pt.heightInches },
-                        },
-                      }));
-                      toast.success(`Applied ${cat.name} template!`);
-                    }}
-                    className="text-xs bg-gold text-navy-dark font-semibold px-3 py-1.5 rounded-lg hover:brightness-110 shadow-sm"
-                  >
-                    Apply Category Template
-                  </button>
 
+                  {form.customization?.templateOverride && (
+                    <PrintTemplateEditor
+                      value={normalizePrintTemplate(form.customization.templateOverride)}
+                      onChange={(template) =>
+                        setForm((previous) => ({
+                          ...previous,
+                          customization: previous.customization && {
+                            ...previous.customization,
+                            templateOverride: template,
+                          },
+                        }))
+                      }
+                    />
+                  )}
                 </div>
               );
             })()}
