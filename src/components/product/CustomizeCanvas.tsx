@@ -419,6 +419,27 @@ export default function CustomizeCanvas({
     canvas.requestRenderAll();
   }
 
+  function zoomImage(factor: number) {
+    const canvas = fabricRef.current;
+    const image = activeImage();
+    if (!canvas || !image) return;
+    image.set({
+      scaleX: Math.max(0.05, (image.scaleX ?? 1) * factor),
+      scaleY: Math.max(0.05, (image.scaleY ?? 1) * factor),
+    });
+    canvas.setActiveObject(image);
+    canvas.requestRenderAll();
+  }
+
+  function rotateImage(delta: number) {
+    const canvas = fabricRef.current;
+    const image = activeImage();
+    if (!canvas || !image) return;
+    image.rotate((image.angle ?? 0) + delta);
+    canvas.setActiveObject(image);
+    canvas.requestRenderAll();
+  }
+
   function removeSelected() {
     const canvas = fabricRef.current;
     const object = canvas?.getActiveObject();
@@ -519,7 +540,16 @@ export default function CustomizeCanvas({
         uploadFile(await dataUrlToFile(printData, "print-ready.png"), "print-ready"),
       ]);
 
-      const fabricJson = canvas.toObject(["isCustomImage", "isGuide", "uploadUrl"]);
+      const fabricJson = canvas.toObject(["isCustomImage", "isGuide", "uploadUrl"]) as Record<string, unknown>;
+      const serializedObjects = Array.isArray(fabricJson.objects)
+        ? (fabricJson.objects as Record<string, unknown>[])
+        : [];
+      serializedObjects.forEach((object) => {
+        if (object.isCustomImage && typeof object.uploadUrl === "string") {
+          object.src = object.uploadUrl;
+        }
+      });
+
       const designState: SavedDesignState = {
         version: 1,
         fabric: fabricJson as Record<string, unknown>,
@@ -654,6 +684,18 @@ export default function CustomizeCanvas({
                     </button>
                     <button type="button" onClick={fitImage} className="rounded-lg border border-border py-2 text-xs font-semibold text-navy">
                       <Maximize2 size={12} className="inline mr-1" /> Fit
+                    </button>
+                    <button type="button" onClick={() => zoomImage(0.9)} className="rounded-lg border border-border py-2 text-xs font-semibold text-navy">
+                      Zoom −
+                    </button>
+                    <button type="button" onClick={() => zoomImage(1.1)} className="rounded-lg border border-border py-2 text-xs font-semibold text-navy">
+                      Zoom +
+                    </button>
+                    <button type="button" onClick={() => rotateImage(-15)} className="rounded-lg border border-border py-2 text-xs font-semibold text-navy">
+                      Rotate ↶
+                    </button>
+                    <button type="button" onClick={() => rotateImage(15)} className="rounded-lg border border-border py-2 text-xs font-semibold text-navy">
+                      Rotate ↷
                     </button>
                   </div>
                 )}
