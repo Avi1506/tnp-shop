@@ -78,6 +78,19 @@ export default function PrintTemplateEditor({
     }
   }
 
+  async function uploadSurfaceMask(file: File, viewId: string) {
+    setUploading(`surface-mask-${viewId}`);
+    try {
+      const url = await uploadFile(file, "mockups");
+      updateView(viewId, { surfaceMaskUrl: url });
+      toast.success("Surface mask uploaded.");
+    } catch (error) {
+      toast.error(error instanceof Error ? error.message : "Surface mask upload failed.");
+    } finally {
+      setUploading(null);
+    }
+  }
+
   async function uploadMask(file: File) {
     setUploading("mask");
     try {
@@ -284,16 +297,174 @@ export default function PrintTemplateEditor({
             </div>
 
             {template.printType === "cylindrical" && (
-              <div>
-                <p className="mb-2 text-xs font-semibold text-navy/60">Source wrap section for this view (%)</p>
-                <div className="grid grid-cols-4 gap-2">
-                  {(["xPct", "yPct", "widthPct", "heightPct"] as const).map((key) => (
-                    <label key={key} className="text-[10px] text-navy/50">
-                      {key.replace("Pct", "")}
-                      <input type="number" min={0} max={100} step="0.1" value={selectedView.source[key]} onChange={(event) => updateView(selectedView.id, { source: { ...selectedView.source, [key]: clamp(safeNumber(event.target.value, selectedView.source[key]), 0, 100) } })} className="mt-1 w-full rounded border border-border bg-white px-2 py-1.5 text-xs text-navy" />
-                    </label>
-                  ))}
+              <div className="space-y-4 rounded-xl border border-border bg-white p-3">
+                <div>
+                  <p className="mb-2 text-xs font-semibold text-navy/60">Visible section of full wrap (%)</p>
+                  <div className="grid grid-cols-4 gap-2">
+                    {(["xPct", "yPct", "widthPct", "heightPct"] as const).map((key) => (
+                      <label key={key} className="text-[10px] text-navy/50">
+                        {key.replace("Pct", "")}
+                        <input
+                          type="number"
+                          min={0}
+                          max={100}
+                          step="0.1"
+                          value={selectedView.source[key]}
+                          onChange={(event) =>
+                            updateView(selectedView.id, {
+                              source: {
+                                ...selectedView.source,
+                                [key]: clamp(
+                                  safeNumber(event.target.value, selectedView.source[key]),
+                                  0,
+                                  100
+                                ),
+                              },
+                            })
+                          }
+                          className="mt-1 w-full rounded border border-border bg-white px-2 py-1.5 text-xs text-navy"
+                        />
+                      </label>
+                    ))}
+                  </div>
                 </div>
+
+                <div>
+                  <p className="mb-2 text-xs font-semibold text-navy/60">Curved surface mapping</p>
+                  <div className="grid grid-cols-2 gap-2 sm:grid-cols-4">
+                    <label className="text-[10px] text-navy/50">
+                      Curvature
+                      <input
+                        type="number"
+                        min={0}
+                        max={1.5}
+                        step={0.05}
+                        value={selectedView.curvatureStrength ?? 1}
+                        onChange={(event) =>
+                          updateView(selectedView.id, {
+                            curvatureStrength: clamp(
+                              safeNumber(event.target.value, 1),
+                              0,
+                              1.5
+                            ),
+                          })
+                        }
+                        className="mt-1 w-full rounded border border-border bg-white px-2 py-1.5 text-xs text-navy"
+                      />
+                    </label>
+                    <label className="text-[10px] text-navy/50">
+                      Perspective
+                      <input
+                        type="number"
+                        min={-1}
+                        max={1}
+                        step={0.05}
+                        value={selectedView.perspectiveStrength ?? 0}
+                        onChange={(event) =>
+                          updateView(selectedView.id, {
+                            perspectiveStrength: clamp(
+                              safeNumber(event.target.value, 0),
+                              -1,
+                              1
+                            ),
+                          })
+                        }
+                        className="mt-1 w-full rounded border border-border bg-white px-2 py-1.5 text-xs text-navy"
+                      />
+                    </label>
+                    <label className="text-[10px] text-navy/50">
+                      Edge fade
+                      <input
+                        type="number"
+                        min={0}
+                        max={1}
+                        step={0.05}
+                        value={selectedView.edgeFalloff ?? 0.32}
+                        onChange={(event) =>
+                          updateView(selectedView.id, {
+                            edgeFalloff: clamp(
+                              safeNumber(event.target.value, 0.32),
+                              0,
+                              1
+                            ),
+                          })
+                        }
+                        className="mt-1 w-full rounded border border-border bg-white px-2 py-1.5 text-xs text-navy"
+                      />
+                    </label>
+                    <label className="text-[10px] text-navy/50">
+                      Rotation
+                      <input
+                        type="number"
+                        min={-45}
+                        max={45}
+                        step={0.5}
+                        value={selectedView.rotation ?? 0}
+                        onChange={(event) =>
+                          updateView(selectedView.id, {
+                            rotation: clamp(
+                              safeNumber(event.target.value, 0),
+                              -45,
+                              45
+                            ),
+                          })
+                        }
+                        className="mt-1 w-full rounded border border-border bg-white px-2 py-1.5 text-xs text-navy"
+                      />
+                    </label>
+                  </div>
+                </div>
+
+                <div className="flex flex-wrap items-center gap-2">
+                  <label className="text-[10px] text-navy/50">
+                    Blend
+                    <select
+                      value={selectedView.blendMode ?? "multiply"}
+                      onChange={(event) =>
+                        updateView(selectedView.id, {
+                          blendMode: event.target.value as "normal" | "multiply",
+                        })
+                      }
+                      className="ml-2 rounded border border-border bg-white px-2 py-1.5 text-xs text-navy"
+                    >
+                      <option value="multiply">Multiply</option>
+                      <option value="normal">Normal</option>
+                    </select>
+                  </label>
+
+                  <label className="cursor-pointer rounded-lg border border-border bg-white px-3 py-2 text-xs font-semibold text-navy">
+                    {uploading === `surface-mask-${selectedView.id}` ? (
+                      <Loader2 size={13} className="inline animate-spin" />
+                    ) : (
+                      <Upload size={13} className="inline" />
+                    )}{" "}
+                    Surface Mask
+                    <input
+                      type="file"
+                      accept="image/png,image/webp"
+                      className="hidden"
+                      onChange={(event) =>
+                        event.target.files?.[0] &&
+                        void uploadSurfaceMask(event.target.files[0], selectedView.id)
+                      }
+                    />
+                  </label>
+
+                  {selectedView.surfaceMaskUrl && (
+                    <button
+                      type="button"
+                      onClick={() => updateView(selectedView.id, { surfaceMaskUrl: null })}
+                      className="rounded-lg border border-red/20 bg-white px-3 py-2 text-xs font-semibold text-red"
+                    >
+                      Remove Mask
+                    </button>
+                  )}
+                </div>
+
+                <p className="text-[10px] leading-relaxed text-navy/50">
+                  Curvature, perspective, edge fade and mask affect customer preview only.
+                  The production file remains the flat full-wrap artwork.
+                </p>
               </div>
             )}
           </div>
