@@ -1,35 +1,87 @@
 "use client";
 
-import { useEffect, useRef, useState, useCallback } from "react";
+import { useCallback, useEffect, useMemo, useRef, useState } from "react";
 import * as fabric from "fabric";
 import { useRouter } from "next/navigation";
 import Image from "next/image";
-import { useCart } from "@/components/cart/CartContext";
-import toast from "react-hot-toast";
 import {
-  Upload,
-  Type,
-  Trash2,
-  RotateCcw,
-  Loader2,
-  ImagePlus,
-  Maximize2,
-  Sparkles,
-  Eye,
-  Pencil,
-  ArrowRight,
   CheckCircle2,
+  Eye,
+  ImagePlus,
+  Loader2,
+  Maximize2,
+  RotateCcw,
   ShieldCheck,
-  ZoomIn,
+  Trash2,
+  Type,
+  Upload,
 } from "lucide-react";
-import type { CustomizationConfig } from "@/db/schema";
+import toast from "react-hot-toast";
+import type {
+  CartItemCustomization,
+  CustomizationConfig,
+  PrintTemplate,
+  SavedDesignState,
+} from "@/db/schema";
+import { outputPixels, resolveProductTemplate, sourceStyle } from "@/lib/print-template";
+import { uploadFile } from "@/lib/client-upload";
+import { useCart } from "@/components/cart/CartContext";
 
-type MockupAngle = {
-  id: string;
-  name: string;
-  url: string;
-  printArea: { xPct: number; yPct: number; widthPct: number; heightPct: number };
+type InitialCustomization = CartItemCustomization | null | undefined;
+
+type CustomFabricObject = fabric.FabricObject & {
+  isCustomImage?: boolean;
+  isGuide?: boolean;
+  uploadUrl?: string;
 };
+
+function editorSize(template: PrintTemplate) {
+  const ratio = template.physical.width / template.physical.height;
+  if (ratio >= 1) {
+    return { width: 640, height: Math.max(260, Math.round(640 / ratio)) };
+  }
+  return { width: Math.max(280, Math.round(520 * ratio)), height: 520 };
+}
+
+function heartPath(width: number, height: number) {
+  const path = new fabric.Path(
+    "M 50 92 C 43 85 8 60 8 32 C 8 12 32 2 50 22 C 68 2 92 12 92 32 C 92 60 57 85 50 92 Z",
+    {
+      left: 0,
+      top: 0,
+      fill: "#000",
+      scaleX: width / 100,
+      scaleY: height / 100,
+      absolutePositioned: true,
+      selectable: false,
+      evented: false,
+    }
+  );
+  return path;
+}
+
+function previewMaskStyle(template: PrintTemplate): React.CSSProperties {
+  if (template.shape === "circle") return { borderRadius: "50%", overflow: "hidden" };
+  if (template.shape === "heart") {
+    return {
+      clipPath:
+        "polygon(50% 92%, 38% 82%, 26% 72%, 15% 60%, 8% 46%, 8% 30%, 15% 17%, 28% 10%, 40% 13%, 50% 25%, 60% 13%, 72% 10%, 85% 17%, 92% 30%, 92% 46%, 85% 60%, 74% 72%, 62% 82%)",
+      overflow: "hidden",
+    };
+  }
+  if (template.shape === "custom-mask" && template.maskUrl) {
+    return {
+      WebkitMaskImage: `url("${template.maskUrl}")`,
+      maskImage: `url("${template.maskUrl}")`,
+      WebkitMaskSize: "100% 100%",
+      maskSize: "100% 100%",
+      WebkitMaskRepeat: "no-repeat",
+      maskRepeat: "no-repeat",
+      overflow: "hidden",
+    };
+  }
+  return { overflow: "hidden" };
+}
 
 export default function CustomizeCanvas({
   productId,
@@ -37,500 +89,412 @@ export default function CustomizeCanvas({
   name,
   price,
   config,
+  categoryTemplate,
+  initialCustomization,
 }: {
   productId: string;
   slug: string;
   name: string;
   price: number;
   config: CustomizationConfig;
+  categoryTemplate?: PrintTemplate | null;
+  initialCustomization?: InitialCustomization;
 }) {
+  const template = useMemo(
+    () => resolveProductTemplate(categoryTemplate, config),
+    [categoryTemplate, config]
+  );
+  const dimensions = useMemo(() => editorSize(template), [template]);
+  const output = useMemo(() => outputPixels(template), [template]);
   const canvasElRef = useRef<HTMLCanvasElement>(null);
   const fabricRef = useRef<fabric.Canvas | null>(null);
-  const guideRef = useRef<fabric.FabricObject | null>(null);
-  const dividersRef = useRef<fabric.FabricObject[]>([]);
   const fileInputRef = useRef<HTMLInputElement>(null);
+  const guideRefs = useRef<fabric.FabricObject[]>([]);
+  const restoredRef = useRef(false);
 
-  // Tab state: "design" (Zazzle Flat Wrap Canvas) vs "preview" (Zazzle 3D Product Mockup Review)
-  const [activeTab, setActiveTab] = useState<"design" | "preview">("design");
-
-  const [uploading, setUploading] = useState(false);
-  const [uploadedUrls, setUploadedUrls] = useState<string[]>([]);
-  const [textValue, setTextValue] = useState("");
-  const [font, setFont] = useState(config.fields.fonts[0] ?? "Poppins");
-  const [textColor, setTextColor] = useState(config.fields.colors[0] ?? "#1B2A4A");
-  const [size, setSize] = useState(config.fields.sizes[0] ?? "");
-  const [instructions, setInstructions] = useState("");
-  const [approved, setApproved] = useState(false);
-  const [submitting, setSubmitting] = useState(false);
+  const [mode, setMode] = useState<"design" | "preview">("design");
+  const [selectedViewId, setSelectedViewId] = useState(template.views[0]?.id ?? "front");
+  const [uploadedUrls, setUploadedUrls] = useState<string[]>(
+    initialCustomization?.originalUploads ?? initialCustomization?.uploadedImages ?? []
+  );
+  const [textValue, setTextValue] = useState(initialCustomization?.text ?? "");
+  const [font, setFont] = useState(initialCustomization?.font ?? config.fields.fonts[0] ?? "Poppins");
+  const [textColor, setTextColor] = useState(
+    initialCustomization?.textColor ?? config.fields.colors[0] ?? "#1B2A4A"
+  );
+  const [size, setSize] = useState(initialCustomization?.size ?? config.fields.sizes[0] ?? "");
+  const [instructions, setInstructions] = useState(initialCustomization?.specialInstructions ?? "");
+  const [approved, setApproved] = useState(initialCustomization?.approved ?? false);
   const [hasSelection, setHasSelection] = useState(false);
-  const [hasUploadedPhoto, setHasUploadedPhoto] = useState(false);
-
-  // Snapshot of ONLY the artwork (transparent PNG)
-  const [artworkSnapshot, setArtworkSnapshot] = useState<string | null>(null);
-  const [selectedAngle, setSelectedAngle] = useState<string>("front");
+  const [hasUploadedPhoto, setHasUploadedPhoto] = useState(uploadedUrls.length > 0);
+  const [artworkSnapshot, setArtworkSnapshot] = useState<string | null>(
+    initialCustomization?.previewImageUrl ?? initialCustomization?.previewImage ?? null
+  );
+  const [qualityWarnings, setQualityWarnings] = useState<string[]>(
+    initialCustomization?.qualityWarnings ?? []
+  );
+  const [uploading, setUploading] = useState(false);
+  const [uploadProgress, setUploadProgress] = useState(0);
+  const [submitting, setSubmitting] = useState(false);
 
   const { addLine } = useCart();
   const router = useRouter();
 
-  const isMug = name.toLowerCase().includes("mug") || name.toLowerCase().includes("cup");
-  const shape = config.shape ?? (isMug ? "rectangle" : "rectangle");
-  const dimensions = config.dimensions ?? {
-    widthInches: isMug ? 7.5 : 8,
-    heightInches: isMug ? 3.5 : 8,
-  };
-
-  // True physical aspect ratio of the printable area
-  const aspectRatio = dimensions.widthInches / dimensions.heightInches;
-  // Calculate canvas dimensions in pixels matching real physical ratio:
-  const CANVAS_WIDTH = isMug ? 640 : (aspectRatio > 1 ? 580 : Math.round(480 * aspectRatio));
-  const CANVAS_HEIGHT = isMug ? 300 : (aspectRatio > 1 ? Math.round(580 / aspectRatio) : 480);
-
-  // Accurate calibrated multi-angle product mockups
-  const angleMockups: MockupAngle[] = isMug
-    ? [
-        {
-          id: "front",
-          name: "Front View",
-          url: "/images/mockups/mug-front.jpg",
-          printArea: { xPct: 33, yPct: 44, widthPct: 34, heightPct: 26 },
-        },
-        {
-          id: "handle-left",
-          name: "Right Angle",
-          url: "/images/mockups/mug-handle-left.jpg",
-          printArea: { xPct: 41, yPct: 44, widthPct: 33, heightPct: 26 },
-        },
-        {
-          id: "handle-right",
-          name: "Left Angle",
-          url: "/images/mockups/mug-handle-right.jpg",
-          printArea: { xPct: 25, yPct: 44, widthPct: 33, heightPct: 26 },
-        },
-      ]
-    : [
-        {
-          id: "front",
-          name: "Front View",
-          url: config.mockupImage || "/images/mockups/mug-front.jpg",
-          printArea: { xPct: 30, yPct: 35, widthPct: 40, heightPct: 40 },
-        },
-      ];
-
-  const currentAngleObj = angleMockups.find((a) => a.id === selectedAngle) || angleMockups[0];
-
-  // Helper: Safe area bounds inside the flat canvas
   const getSafeArea = useCallback(() => {
-    const margin = 16;
+    const { safeArea } = template;
+    const left = (dimensions.width * safeArea.leftPct) / 100;
+    const top = (dimensions.height * safeArea.topPct) / 100;
+    const right = (dimensions.width * safeArea.rightPct) / 100;
+    const bottom = (dimensions.height * safeArea.bottomPct) / 100;
     return {
-      left: margin,
-      top: margin,
-      width: CANVAS_WIDTH - margin * 2,
-      height: CANVAS_HEIGHT - margin * 2,
+      left,
+      top,
+      width: Math.max(1, dimensions.width - left - right),
+      height: Math.max(1, dimensions.height - top - bottom),
     };
-  }, [CANVAS_WIDTH, CANVAS_HEIGHT]);
+  }, [dimensions, template]);
 
-  // Helper: draw Zazzle-style "YOUR IMAGE HERE" placeholder in the center of the safe area
-  const renderPlaceholder = useCallback((canvas: fabric.Canvas) => {
-    canvas.getObjects().forEach((obj) => {
-      if ((obj as unknown as { isPlaceholder?: boolean }).isPlaceholder) {
-        canvas.remove(obj);
+  const applyCanvasMask = useCallback(async (canvas: fabric.Canvas) => {
+    if (template.shape === "circle") {
+      const radius = Math.min(dimensions.width, dimensions.height) / 2;
+      canvas.clipPath = new fabric.Circle({
+        left: dimensions.width / 2,
+        top: dimensions.height / 2,
+        radius,
+        originX: "center",
+        originY: "center",
+        absolutePositioned: true,
+        selectable: false,
+        evented: false,
+      });
+      canvas.requestRenderAll();
+      return;
+    }
+
+    if (template.shape === "heart") {
+      canvas.clipPath = heartPath(dimensions.width, dimensions.height);
+      canvas.requestRenderAll();
+      return;
+    }
+
+    if (template.shape === "custom-mask" && template.maskUrl) {
+      try {
+        const mask = await fabric.FabricImage.fromURL(template.maskUrl, {
+          crossOrigin: "anonymous",
+        });
+        mask.set({
+          left: 0,
+          top: 0,
+          scaleX: dimensions.width / Math.max(1, mask.width ?? 1),
+          scaleY: dimensions.height / Math.max(1, mask.height ?? 1),
+          absolutePositioned: true,
+          selectable: false,
+          evented: false,
+        });
+        canvas.clipPath = mask;
+        canvas.requestRenderAll();
+      } catch {
+        setQualityWarnings((warnings) => [
+          ...warnings.filter((warning) => !warning.includes("mask")),
+          "Custom mask could not be loaded; verify the template mask URL.",
+        ]);
       }
-    });
+    }
+  }, [dimensions, template]);
 
+  const addGuides = useCallback((canvas: fabric.Canvas) => {
     const safe = getSafeArea();
-    const boxW = Math.min(safe.width * 0.45, 220);
-    const boxH = Math.min(safe.height * 0.8, 180);
-    const boxX = safe.left + safe.width / 2 - boxW / 2;
-    const boxY = safe.top + safe.height / 2 - boxH / 2;
-
-    const bg = new fabric.Rect({
-      left: boxX,
-      top: boxY,
-      width: boxW,
-      height: boxH,
-      rx: 12,
-      ry: 12,
-      fill: "rgba(255, 255, 255, 0.95)",
-      stroke: "#B8912A",
+    const guide = new fabric.Rect({
+      left: safe.left,
+      top: safe.top,
+      width: safe.width,
+      height: safe.height,
+      fill: "transparent",
+      stroke: "#2A9D8F",
       strokeDashArray: [6, 4],
       strokeWidth: 1.5,
-      shadow: new fabric.Shadow({
-        color: "rgba(0, 0, 0, 0.05)",
-        blur: 10,
-        offsetX: 0,
-        offsetY: 4,
-      }),
       selectable: false,
-      hoverCursor: "pointer",
-    });
+      evented: false,
+    }) as CustomFabricObject;
+    guide.isGuide = true;
+    guideRefs.current = [guide];
+    canvas.add(guide);
 
-    const titleText = new fabric.FabricText("YOUR IMAGE HERE", {
-      left: safe.left + safe.width / 2,
-      top: safe.top + safe.height / 2 - 12,
-      originX: "center",
-      originY: "center",
-      fontSize: 16,
-      fontWeight: "bold",
-      fill: "#1B2A4A",
-      fontFamily: "Poppins",
-      selectable: false,
-      hoverCursor: "pointer",
-    });
+    if (template.printType === "cylindrical") {
+      const divider1 = new fabric.Line(
+        [dimensions.width / 3, 0, dimensions.width / 3, dimensions.height],
+        { stroke: "rgba(27,42,74,.18)", strokeDashArray: [4, 4], selectable: false, evented: false }
+      ) as CustomFabricObject;
+      const divider2 = new fabric.Line(
+        [(dimensions.width * 2) / 3, 0, (dimensions.width * 2) / 3, dimensions.height],
+        { stroke: "rgba(27,42,74,.18)", strokeDashArray: [4, 4], selectable: false, evented: false }
+      ) as CustomFabricObject;
+      divider1.isGuide = true;
+      divider2.isGuide = true;
+      guideRefs.current.push(divider1, divider2);
+      canvas.add(divider1, divider2);
+    }
+  }, [dimensions, getSafeArea, template.printType]);
 
-    const subText = new fabric.FabricText("Click or tap to upload photo", {
-      left: safe.left + safe.width / 2,
-      top: safe.top + safe.height / 2 + 14,
-      originX: "center",
-      originY: "center",
-      fontSize: 11,
-      fill: "#B8912A",
-      fontFamily: "Poppins",
-      selectable: false,
-      hoverCursor: "pointer",
-    });
-
-    (bg as unknown as { isPlaceholder?: boolean }).isPlaceholder = true;
-    (titleText as unknown as { isPlaceholder?: boolean }).isPlaceholder = true;
-    (subText as unknown as { isPlaceholder?: boolean }).isPlaceholder = true;
-
-    canvas.add(bg, titleText, subText);
-    canvas.renderAll();
-  }, [getSafeArea]);
-
-  // ---- init flat design canvas (Zazzle style) ----------------------------
   useEffect(() => {
     if (!canvasElRef.current) return;
     const canvas = new fabric.Canvas(canvasElRef.current, {
-      width: CANVAS_WIDTH,
-      height: CANVAS_HEIGHT,
+      width: dimensions.width,
+      height: dimensions.height,
       backgroundColor: "#FAF9F6",
       preserveObjectStacking: true,
     });
     fabricRef.current = canvas;
+    addGuides(canvas);
+    void applyCanvasMask(canvas);
 
-    const safe = getSafeArea();
-    const isCircle = shape === "circle";
-    let guide: fabric.FabricObject;
-
-    if (isCircle) {
-      const radius = Math.min(safe.width, safe.height) / 2;
-      guide = new fabric.Circle({
-        left: safe.left + safe.width / 2,
-        top: safe.top + safe.height / 2,
-        radius: radius,
-        originX: "center",
-        originY: "center",
-        fill: "transparent",
-        stroke: "#2A9D8F",
-        strokeDashArray: [6, 4],
-        strokeWidth: 1.5,
-        selectable: false,
-        evented: false,
-      });
-    } else {
-      guide = new fabric.Rect({
-        left: safe.left,
-        top: safe.top,
-        width: safe.width,
-        height: safe.height,
-        rx: 8,
-        ry: 8,
-        fill: "transparent",
-        stroke: "#2A9D8F",
-        strokeDashArray: [6, 4],
-        strokeWidth: 1.5,
-        selectable: false,
-        evented: false,
+    const saved = initialCustomization?.designState;
+    if (saved?.fabric && !restoredRef.current) {
+      restoredRef.current = true;
+      void canvas.loadFromJSON(saved.fabric).then(() => {
+        guideRefs.current = canvas
+          .getObjects()
+          .filter((object) => Boolean((object as CustomFabricObject).isGuide));
+        canvas.requestRenderAll();
       });
     }
 
-    guideRef.current = guide;
-    canvas.add(guide);
-
-    // For Mugs: add subtle vertical guide dividers (Left Side | Center Front | Right Side)
-    if (isMug) {
-      const div1 = new fabric.Line([safe.left + safe.width / 3, safe.top, safe.left + safe.width / 3, safe.top + safe.height], {
-        stroke: "rgba(27, 42, 74, 0.15)",
-        strokeDashArray: [4, 4],
-        selectable: false,
-        evented: false,
-      });
-      const div2 = new fabric.Line([safe.left + (safe.width * 2) / 3, safe.top, safe.left + (safe.width * 2) / 3, safe.top + safe.height], {
-        stroke: "rgba(27, 42, 74, 0.15)",
-        strokeDashArray: [4, 4],
-        selectable: false,
-        evented: false,
-      });
-      dividersRef.current = [div1, div2];
-      canvas.add(div1, div2);
-    }
-
-    // Add Zazzle-style clickable placeholder
-    if (config.fields.imageUpload) {
-      renderPlaceholder(canvas);
-    }
-
-    canvas.on("mouse:down", (opt) => {
-      if (opt.target && (opt.target as unknown as { isPlaceholder?: boolean }).isPlaceholder) {
-        fileInputRef.current?.click();
-      }
-    });
-
-    const onSelection = () => setHasSelection(true);
-    const onCleared = () => setHasSelection(false);
-    canvas.on("selection:created", onSelection);
-    canvas.on("selection:updated", onSelection);
-    canvas.on("selection:cleared", onCleared);
+    const selected = () => setHasSelection(true);
+    const cleared = () => setHasSelection(false);
+    canvas.on("selection:created", selected);
+    canvas.on("selection:updated", selected);
+    canvas.on("selection:cleared", cleared);
 
     return () => {
       canvas.dispose();
       fabricRef.current = null;
     };
-    // eslint-disable-next-line react-hooks/exhaustive-deps
-  }, []);
+  }, [addGuides, applyCanvasMask, dimensions, initialCustomization]);
 
-  // ---- upload + place or replace photo -----------------------------------
-  async function handleFileChange(e: React.ChangeEvent<HTMLInputElement>) {
-    const file = e.target.files?.[0];
+  function customerObjects(canvas: fabric.Canvas) {
+    return canvas.getObjects().filter((object) => !(object as CustomFabricObject).isGuide);
+  }
+
+  function setGuidesVisible(visible: boolean) {
+    guideRefs.current.forEach((guide) => guide.set({ opacity: visible ? 1 : 0 }));
+  }
+
+  function captureArtwork(multiplier = 2) {
+    const canvas = fabricRef.current;
+    if (!canvas) return null;
+    setGuidesVisible(false);
+    canvas.discardActiveObject();
+    const oldBackground = canvas.backgroundColor;
+    canvas.backgroundColor = "transparent";
+    canvas.requestRenderAll();
+    const data = canvas.toDataURL({ format: "png", multiplier });
+    canvas.backgroundColor = oldBackground;
+    setGuidesVisible(true);
+    canvas.requestRenderAll();
+    return data;
+  }
+
+  async function handleFileChange(event: React.ChangeEvent<HTMLInputElement>) {
+    const file = event.target.files?.[0];
     if (!file) return;
     setUploading(true);
-    let localUrl = "";
+    setUploadProgress(0);
+
     try {
-      localUrl = URL.createObjectURL(file);
+      if (!["image/jpeg", "image/png", "image/webp"].includes(file.type)) {
+        throw new Error("Please upload a JPG, PNG or WebP image.");
+      }
+      if (file.size > 10 * 1024 * 1024) {
+        throw new Error("Image must be 10 MB or smaller.");
+      }
+
+      const bitmap = await createImageBitmap(file);
+      const nextWarnings: string[] = [];
+      if (bitmap.width < output.widthPx || bitmap.height < output.heightPx) {
+        nextWarnings.push(
+          `Image resolution is ${bitmap.width}×${bitmap.height}px; full-size ${template.physical.dpi} DPI output is ${output.widthPx}×${output.heightPx}px. Printing may look soft if enlarged.`
+        );
+      }
+      bitmap.close();
+      setQualityWarnings(nextWarnings);
+
+      const localUrl = URL.createObjectURL(file);
+      const image = await fabric.FabricImage.fromURL(localUrl, { crossOrigin: "anonymous" });
+      URL.revokeObjectURL(localUrl);
+
       const canvas = fabricRef.current;
-      if (canvas) {
-        // Remove existing placeholders and previous custom images
-        const objects = canvas.getObjects();
-        objects.forEach((obj) => {
-          const customObj = obj as unknown as { isPlaceholder?: boolean; isCustomImage?: boolean };
-          if (customObj.isPlaceholder || (!config.fields.multipleImages && customObj.isCustomImage)) {
-            canvas.remove(obj);
-          }
-        });
+      if (!canvas) throw new Error("Editor is not ready.");
 
-        const img = await fabric.FabricImage.fromURL(localUrl, { crossOrigin: "anonymous" });
-        const safe = getSafeArea();
-        // Scale to fit cleanly within safe area
-        const maxH = safe.height * 0.85;
-        const maxW = isMug ? safe.width * 0.45 : safe.width * 0.8;
-        const scale = Math.min(maxW / (img.width ?? 1), maxH / (img.height ?? 1));
-
-        img.set({
-          left: safe.left + safe.width / 2,
-          top: safe.top + safe.height / 2,
-          originX: "center",
-          originY: "center",
-          scaleX: scale,
-          scaleY: scale,
-          cornerColor: "#B8912A",
-          cornerStyle: "circle",
-          transparentCorners: false,
-        });
-        (img as unknown as { isCustomImage?: boolean }).isCustomImage = true;
-        canvas.add(img);
-        canvas.setActiveObject(img);
-        canvas.renderAll();
-        setHasUploadedPhoto(true);
+      if (!config.fields.multipleImages) {
+        customerObjects(canvas)
+          .filter((object) => (object as CustomFabricObject).isCustomImage)
+          .forEach((object) => canvas.remove(object));
       }
 
-      // Stream upload to Cloudflare R2
-      const fd = new FormData();
-      fd.append("file", file);
-      fd.append("folder", "customizations");
-      const res = await fetch("/api/upload", { method: "POST", body: fd });
-      const data = await res.json() as { url?: string; error?: string };
-      if (!res.ok || !data.url) {
-        throw new Error(data.error || "Failed to upload photo.");
-      }
+      const safe = getSafeArea();
+      const scale = Math.max(
+        safe.width / Math.max(1, image.width ?? 1),
+        safe.height / Math.max(1, image.height ?? 1)
+      );
+      image.set({
+        left: safe.left + safe.width / 2,
+        top: safe.top + safe.height / 2,
+        originX: "center",
+        originY: "center",
+        scaleX: scale,
+        scaleY: scale,
+        cornerColor: "#B8912A",
+        cornerStyle: "circle",
+        transparentCorners: false,
+      });
+      const customImage = image as CustomFabricObject;
+      customImage.isCustomImage = true;
+      canvas.add(customImage);
+      canvas.setActiveObject(customImage);
+      canvas.requestRenderAll();
+      setHasUploadedPhoto(true);
 
-      const finalUrl = data.url;
-      setUploadedUrls((prev) =>
-        config.fields.multipleImages ? [...prev, finalUrl] : [finalUrl]
+      const url = await uploadFile(file, "customizations", setUploadProgress);
+      customImage.uploadUrl = url;
+      setUploadedUrls((current) =>
+        config.fields.multipleImages ? [...current, url] : [url]
       );
-      toast.success("Photo placed! Drag, resize or rotate to position.");
-    } catch (err) {
-      console.error("[upload error]", err);
-      toast.error(
-        err instanceof Error ? err.message : "Could not upload photo. Please try again."
-      );
+      toast.success("Photo uploaded. Adjust it until it looks right.");
+    } catch (error) {
+      toast.error(error instanceof Error ? error.message : "Upload failed.");
     } finally {
       setUploading(false);
+      setUploadProgress(0);
       if (fileInputRef.current) fileInputRef.current.value = "";
     }
   }
 
-  // ---- Capture ONLY artwork (transparent PNG) and open 3D Review --------
-  function handleSwitchToPreview() {
+  function activeImage() {
     const canvas = fabricRef.current;
-    if (!canvas) return;
-
-    // 1. Temporarily hide guides, dividers, and placeholders
-    if (guideRef.current) guideRef.current.set({ opacity: 0 });
-    dividersRef.current.forEach((d) => d.set({ opacity: 0 }));
-    canvas.getObjects().forEach((obj) => {
-      if ((obj as unknown as { isPlaceholder?: boolean }).isPlaceholder) {
-        obj.set({ opacity: 0 });
-      }
-    });
-    canvas.discardActiveObject();
-    canvas.backgroundColor = "transparent";
-    canvas.renderAll();
-
-    // 2. Capture ONLY the customer's design as a clean transparent PNG
-    const transparentArtwork = canvas.toDataURL({ format: "png", multiplier: 2 });
-
-    // 3. Restore canvas styling for design mode
-    canvas.backgroundColor = "#FAF9F6";
-    if (guideRef.current) guideRef.current.set({ opacity: 1 });
-    dividersRef.current.forEach((d) => d.set({ opacity: 1 }));
-    canvas.getObjects().forEach((obj) => {
-      if ((obj as unknown as { isPlaceholder?: boolean }).isPlaceholder) {
-        obj.set({ opacity: 1 });
-      }
-    });
-    canvas.renderAll();
-
-    setArtworkSnapshot(transparentArtwork);
-    setActiveTab("preview");
+    if (!canvas) return null;
+    const active = canvas.getActiveObject() as CustomFabricObject | undefined;
+    if (active?.isCustomImage) return active;
+    return customerObjects(canvas).find((object) => (object as CustomFabricObject).isCustomImage) ?? null;
   }
 
-  // ---- quick placement helpers --------------------------------------------
-  function handleFitImage() {
+  function fitImage() {
     const canvas = fabricRef.current;
-    if (!canvas) return;
+    const image = activeImage();
+    if (!canvas || !image) return;
     const safe = getSafeArea();
-    const active = canvas.getActiveObject() || canvas.getObjects().find((o) => (o as unknown as { isCustomImage?: boolean }).isCustomImage);
-    if (active && (active.type === "image" || (active as unknown as { isCustomImage?: boolean }).isCustomImage)) {
-      const maxH = safe.height * 0.9;
-      const maxW = isMug ? safe.width * 0.45 : safe.width * 0.85;
-      const scale = Math.min(maxW / (active.width ?? 1), maxH / (active.height ?? 1));
-      active.set({
-        left: safe.left + safe.width / 2,
-        top: safe.top + safe.height / 2,
-        originX: "center",
-        originY: "center",
-        scaleX: scale,
-        scaleY: scale,
-        angle: 0,
-      });
-      canvas.setActiveObject(active);
-      canvas.renderAll();
-      toast.success("Photo centered in print area");
-    }
-  }
-
-  function handleFillArea() {
-    const canvas = fabricRef.current;
-    if (!canvas) return;
-    const safe = getSafeArea();
-    const active = canvas.getActiveObject() || canvas.getObjects().find((o) => (o as unknown as { isCustomImage?: boolean }).isCustomImage);
-    if (active && (active.type === "image" || (active as unknown as { isCustomImage?: boolean }).isCustomImage)) {
-      const scale = Math.max(safe.width / (active.width ?? 1), safe.height / (active.height ?? 1));
-      active.set({
-        left: safe.left + safe.width / 2,
-        top: safe.top + safe.height / 2,
-        originX: "center",
-        originY: "center",
-        scaleX: scale,
-        scaleY: scale,
-        angle: 0,
-      });
-      canvas.setActiveObject(active);
-      canvas.renderAll();
-      toast.success("Photo expanded across full area");
-    }
-  }
-
-  function handleRemovePhoto() {
-    const canvas = fabricRef.current;
-    if (!canvas) return;
-    const objects = canvas.getObjects();
-    objects.forEach((obj) => {
-      if ((obj as unknown as { isCustomImage?: boolean }).isCustomImage) {
-        canvas.remove(obj);
-      }
+    const scale = Math.min(
+      safe.width / Math.max(1, image.width ?? 1),
+      safe.height / Math.max(1, image.height ?? 1)
+    );
+    image.set({
+      left: safe.left + safe.width / 2,
+      top: safe.top + safe.height / 2,
+      originX: "center",
+      originY: "center",
+      scaleX: scale,
+      scaleY: scale,
     });
+    canvas.setActiveObject(image);
+    canvas.requestRenderAll();
+  }
+
+  function fillImage() {
+    const canvas = fabricRef.current;
+    const image = activeImage();
+    if (!canvas || !image) return;
+    const safe = getSafeArea();
+    const scale = Math.max(
+      safe.width / Math.max(1, image.width ?? 1),
+      safe.height / Math.max(1, image.height ?? 1)
+    );
+    image.set({
+      left: safe.left + safe.width / 2,
+      top: safe.top + safe.height / 2,
+      originX: "center",
+      originY: "center",
+      scaleX: scale,
+      scaleY: scale,
+    });
+    canvas.setActiveObject(image);
+    canvas.requestRenderAll();
+  }
+
+  function removeSelected() {
+    const canvas = fabricRef.current;
+    const object = canvas?.getActiveObject();
+    if (!canvas || !object || (object as CustomFabricObject).isGuide) return;
+    canvas.remove(object);
     canvas.discardActiveObject();
+    setHasUploadedPhoto(customerObjects(canvas).some((item) => (item as CustomFabricObject).isCustomImage));
+    canvas.requestRenderAll();
+  }
+
+  function resetCanvas() {
+    const canvas = fabricRef.current;
+    if (!canvas) return;
+    customerObjects(canvas).forEach((object) => canvas.remove(object));
     setUploadedUrls([]);
     setHasUploadedPhoto(false);
-
-    renderPlaceholder(canvas);
-    toast.success("Photo removed");
+    setTextValue("");
+    setApproved(false);
+    setArtworkSnapshot(null);
+    setQualityWarnings([]);
+    canvas.requestRenderAll();
   }
 
-  // ---- add / update text --------------------------------------------------
-  function handleAddText() {
+  function addText() {
     if (!textValue.trim()) {
-      toast.error("Type something first");
+      toast.error("Type your text first.");
       return;
     }
     const canvas = fabricRef.current;
     if (!canvas) return;
     const safe = getSafeArea();
-    const textbox = new fabric.Textbox(textValue.slice(0, config.fields.maxTextLength), {
-      left: safe.left + safe.width / 2,
-      top: safe.top + safe.height / 2,
-      originX: "center",
-      originY: "center",
-      fontFamily: font,
-      fill: textColor,
-      fontSize: 26,
-      width: Math.min(safe.width * 0.5, 260),
-      textAlign: "center",
-      cornerColor: "#B8912A",
-      cornerStyle: "circle",
-      transparentCorners: false,
-    });
+    const textbox = new fabric.Textbox(
+      textValue.slice(0, config.fields.maxTextLength),
+      {
+        left: safe.left + safe.width / 2,
+        top: safe.top + safe.height / 2,
+        originX: "center",
+        originY: "center",
+        width: Math.min(300, safe.width * 0.7),
+        fontFamily: font,
+        fill: textColor,
+        fontSize: 28,
+        textAlign: "center",
+        cornerColor: "#B8912A",
+        cornerStyle: "circle",
+        transparentCorners: false,
+      }
+    );
     canvas.add(textbox);
     canvas.setActiveObject(textbox);
-    canvas.renderAll();
+    canvas.requestRenderAll();
   }
 
-  function applyStyleToSelection(next: { font?: string; color?: string }) {
+  function updateSelectedText(next: { font?: string; color?: string }) {
     const canvas = fabricRef.current;
-    const obj = canvas?.getActiveObject();
-    if (obj && obj.type === "textbox") {
-      if (next.font) obj.set("fontFamily", next.font);
-      if (next.color) obj.set("fill", next.color);
-      canvas?.renderAll();
-    }
+    const active = canvas?.getActiveObject();
+    if (!canvas || !active || active.type !== "textbox") return;
+    if (next.font) active.set("fontFamily", next.font);
+    if (next.color) active.set("fill", next.color);
+    canvas.requestRenderAll();
   }
 
-  function handleDeleteSelected() {
-    const canvas = fabricRef.current;
-    const obj = canvas?.getActiveObject();
-    if (obj && canvas) {
-      if ((obj as unknown as { isCustomImage?: boolean }).isCustomImage) {
-        setHasUploadedPhoto(false);
-        setUploadedUrls([]);
-        renderPlaceholder(canvas);
-      }
-      canvas.remove(obj);
-      canvas.discardActiveObject();
-      canvas.renderAll();
-    }
+  function showPreview() {
+    const data = captureArtwork(2);
+    if (data) setArtworkSnapshot(data);
+    setMode("preview");
   }
 
-  function handleReset() {
-    const canvas = fabricRef.current;
-    if (!canvas) return;
-    canvas.getObjects().forEach((o) => {
-      if (o !== guideRef.current && !dividersRef.current.includes(o)) {
-        canvas.remove(o);
-      }
-    });
-    canvas.discardActiveObject();
-    setUploadedUrls([]);
-    setHasUploadedPhoto(false);
-    setTextValue("");
-    setApproved(false);
-    renderPlaceholder(canvas);
+  async function dataUrlToFile(dataUrl: string, filename: string) {
+    const blob = await (await fetch(dataUrl)).blob();
+    return new File([blob], filename, { type: "image/png" });
   }
 
-  // ---- submit: capture final design and add to cart ----------------------
   async function handleAddToCart() {
     if (!approved) {
-      toast.error("Please review and check the approval checkbox first.");
+      toast.error("Please approve the preview first.");
       return;
     }
     if (config.fields.sizeChoice && config.fields.sizes.length && !size) {
@@ -538,47 +502,39 @@ export default function CustomizeCanvas({
       return;
     }
 
+    const canvas = fabricRef.current;
+    if (!canvas) return;
     setSubmitting(true);
+
     try {
-      const canvas = fabricRef.current;
-      let finalSnapshot = artworkSnapshot;
+      const previewData = captureArtwork(2);
+      if (!previewData) throw new Error("Could not create preview.");
 
-      if (canvas) {
-        if (guideRef.current) guideRef.current.set({ opacity: 0 });
-        dividersRef.current.forEach((d) => d.set({ opacity: 0 }));
-        canvas.getObjects().forEach((obj) => {
-          if ((obj as unknown as { isPlaceholder?: boolean }).isPlaceholder) {
-            obj.set({ opacity: 0 });
-          }
-        });
-        canvas.discardActiveObject();
-        canvas.backgroundColor = "transparent";
-        canvas.renderAll();
-        finalSnapshot = canvas.toDataURL({ format: "png", quality: 0.95, multiplier: 2 });
+      const multiplier = output.widthPx / dimensions.width;
+      const printData = captureArtwork(multiplier);
+      if (!printData) throw new Error("Could not create print artwork.");
 
-        canvas.backgroundColor = "#FAF9F6";
-        if (guideRef.current) guideRef.current.set({ opacity: 1 });
-        dividersRef.current.forEach((d) => d.set({ opacity: 1 }));
-        canvas.renderAll();
-      }
+      const [previewImageUrl, printReadyArtworkUrl] = await Promise.all([
+        uploadFile(await dataUrlToFile(previewData, "preview.png"), "previews"),
+        uploadFile(await dataUrlToFile(printData, "print-ready.png"), "print-ready"),
+      ]);
 
-      let previewImageUrl = finalSnapshot || "/images/mockups/mug-front.jpg";
-
-      if (finalSnapshot) {
-        try {
-          const blob = await (await fetch(finalSnapshot)).blob();
-          const fd = new FormData();
-          fd.append("file", new File([blob], "custom-design.png", { type: "image/png" }));
-          fd.append("folder", "previews");
-          const res = await fetch("/api/upload", { method: "POST", body: fd });
-          const data = await res.json();
-          if (res.ok && data.url) {
-            previewImageUrl = data.url;
-          }
-        } catch {
-          // Fallback to dataUrl on upload error
-        }
-      }
+      const fabricJson = canvas.toJSON(["isCustomImage", "isGuide", "uploadUrl"]);
+      const designState: SavedDesignState = {
+        version: 1,
+        fabric: fabricJson as Record<string, unknown>,
+        canvas: { width: dimensions.width, height: dimensions.height },
+        template: {
+          id: `${productId}:${template.templateVersion}`,
+          version: template.templateVersion,
+          printType: template.printType,
+          shape: template.shape,
+        },
+        selectedVariant: {
+          size: size || null,
+          productColor: null,
+        },
+      };
 
       addLine({
         productId,
@@ -589,6 +545,7 @@ export default function CustomizeCanvas({
         quantity: 1,
         customization: {
           uploadedImages: uploadedUrls,
+          originalUploads: uploadedUrls,
           text: textValue || null,
           font: textValue ? font : null,
           textColor: textValue ? textColor : null,
@@ -596,228 +553,107 @@ export default function CustomizeCanvas({
           size: size || null,
           specialInstructions: instructions || null,
           previewImage: previewImageUrl,
+          previewImageUrl,
+          printReadyArtworkUrl,
+          designState,
+          templateId: designState.template.id,
+          templateVersion: template.templateVersion,
+          printOutput: {
+            width: template.physical.width,
+            height: template.physical.height,
+            unit: template.physical.unit,
+            dpi: template.physical.dpi,
+            widthPx: output.widthPx,
+            heightPx: output.heightPx,
+          },
+          qualityWarnings,
           approved: true,
         },
       });
-      toast.success("Added to cart!");
+
+      toast.success("Added to cart.");
       router.push("/cart");
-    } catch (err) {
-      toast.error(err instanceof Error ? err.message : "Something went wrong");
+    } catch (error) {
+      toast.error(error instanceof Error ? error.message : "Could not save your design.");
     } finally {
       setSubmitting(false);
     }
   }
 
+  const selectedView = template.views.find((view) => view.id === selectedViewId) ?? template.views[0];
+  const unitLabel = template.physical.unit === "cm" ? "cm" : "in";
+
   return (
-    <div className="w-full">
-      {/* Zazzle-style Top Guided Flow Header */}
-      <div className="flex flex-wrap items-center justify-between border-b border-border pb-4 mb-6 gap-3">
-        <div className="flex items-center gap-2 bg-offwhite p-1 rounded-xl border border-border">
-          <button
-            type="button"
-            onClick={() => setActiveTab("design")}
-            className={`flex items-center gap-2 px-4 py-2 rounded-lg text-xs sm:text-sm font-semibold transition ${
-              activeTab === "design"
-                ? "bg-white text-navy shadow-xs border border-border"
-                : "text-navy/60 hover:text-navy"
-            }`}
-          >
-            <Pencil size={15} />
-            <span>Design</span>
-          </button>
-          <button
-            type="button"
-            onClick={handleSwitchToPreview}
-            className={`flex items-center gap-2 px-4 py-2 rounded-lg text-xs sm:text-sm font-semibold transition ${
-              activeTab === "preview"
-                ? "bg-navy text-white shadow-xs"
-                : "text-navy/60 hover:text-navy"
-            }`}
-          >
-            <Eye size={15} />
-            <span>Review &amp; Mockup</span>
-          </button>
-        </div>
-
-        <div className="flex items-center gap-2">
-          {activeTab === "design" ? (
-            <button
-              type="button"
-              onClick={handleSwitchToPreview}
-              className="flex items-center gap-2 bg-gold text-navy-dark text-xs sm:text-sm font-semibold px-5 py-2.5 rounded-full hover:brightness-110 shadow-sm transition active:scale-95"
-            >
-              <Eye size={15} />
-              <span>Preview</span>
-              <ArrowRight size={15} />
-            </button>
-          ) : (
-            <button
-              type="button"
-              onClick={() => setActiveTab("design")}
-              className="text-xs font-semibold text-navy/70 hover:text-navy underline flex items-center gap-1"
-            >
-              ← Edit Design
-            </button>
-          )}
-        </div>
-      </div>
-
-      {/* VIEW 1: ZAZZLE FLAT DESIGN CANVAS (Aspect Ratio 7.5" x 3.5") */}
-      <div className={activeTab === "design" ? "block" : "hidden"}>
-        <div className="flex flex-col lg:grid lg:grid-cols-[1fr_380px] gap-6 lg:gap-10 w-full overflow-x-hidden">
-          {/* Canvas Work Area */}
-          <div className="w-full flex flex-col items-center">
-            {/* Real Dimensions & Quality Banner */}
-            <div className="w-full max-w-[640px] flex items-center justify-between mb-2.5 px-1">
-              <div className="flex items-center gap-1.5 text-xs font-semibold text-navy">
-                <span className="inline-block w-2 h-2 rounded-full bg-teal animate-pulse" />
-                Flat Print Template
-              </div>
-              <div className="text-[11px] font-semibold text-navy/80 bg-white px-3 py-1 rounded-full border border-border shadow-xs flex items-center gap-1">
-                <Sparkles size={11} className="text-gold" />
-                <span>
-                  Print Dimensions: {dimensions.widthInches}&quot; × {dimensions.heightInches}&quot; ({shape})
-                </span>
-              </div>
+    <div className="space-y-6">
+      {mode === "design" ? (
+        <div className="grid grid-cols-1 lg:grid-cols-[minmax(0,1fr)_360px] gap-6 items-start">
+          <div className="space-y-4">
+            <div className="flex flex-wrap gap-2 text-[11px] font-semibold text-navy/70">
+              <span className="rounded-full border border-border bg-white px-3 py-1">
+                {template.printType === "cylindrical" ? "Full Wrap" : "Print Area"}
+              </span>
+              <span className="rounded-full border border-border bg-white px-3 py-1">
+                {template.physical.width} × {template.physical.height} {unitLabel}
+              </span>
+              <span className="rounded-full border border-border bg-white px-3 py-1">
+                {template.physical.dpi} DPI · {output.widthPx} × {output.heightPx}px
+              </span>
             </div>
 
-            {/* Flat Canvas Box with Zazzle Rulers */}
-            <div className="relative w-full max-w-[640px] rounded-2xl border border-border bg-white p-3 sm:p-5 flex flex-col items-center justify-center shadow-xs">
-              {/* Width Dimension Ruler */}
-              <div className="w-full flex items-center justify-center gap-2 mb-2 text-xs font-semibold text-navy/70">
-                <span className="h-px bg-border flex-1" />
-                <span className="bg-offwhite px-2.5 py-0.5 rounded border border-border text-[11px]">
-                  ↔ {dimensions.widthInches} in (Full Wrap Width)
-                </span>
-                <span className="h-px bg-border flex-1" />
-              </div>
-
-              {/* Responsive Container for Flat Canvas */}
+            <div className="rounded-2xl border border-border bg-white p-3 sm:p-5 shadow-xs">
               <div
-                className="relative w-full rounded-xl overflow-hidden border border-border/80 bg-[#FAF9F6] flex items-center justify-center [&_.canvas-container]:!w-full [&_.canvas-container]:!h-full [&_canvas]:!w-full [&_canvas]:!h-full"
-                style={{ aspectRatio: `${CANVAS_WIDTH} / ${CANVAS_HEIGHT}` }}
+                className="relative mx-auto overflow-hidden rounded-xl border border-border bg-[#FAF9F6] [&_.canvas-container]:!w-full [&_.canvas-container]:!h-full [&_canvas]:!w-full [&_canvas]:!h-full"
+                style={{ maxWidth: dimensions.width, aspectRatio: `${dimensions.width}/${dimensions.height}` }}
               >
                 <canvas ref={canvasElRef} className="touch-none" />
               </div>
-
-              {/* Mug Section Labels & Height Ruler */}
-              <div className="w-full flex items-center justify-between mt-2.5 text-[11px] text-navy/60 px-1">
-                {isMug ? (
-                  <div className="flex items-center gap-4 text-[10px] font-medium text-navy/50">
-                    <span>← Left Side</span>
-                    <span className="text-teal font-semibold">● Center Front</span>
-                    <span>Right Side →</span>
-                  </div>
-                ) : (
-                  <span className="text-teal font-medium">● Safe Area (Green Dashed Line)</span>
-                )}
-                <span className="bg-offwhite px-2 py-0.5 rounded border border-border text-[10px] font-semibold">
-                  ↕ {dimensions.heightInches} in Height
-                </span>
-              </div>
+              {template.printType === "cylindrical" && (
+                <div className="mt-2 grid grid-cols-3 text-center text-[10px] font-medium text-navy/50">
+                  <span>Left</span><span className="text-teal">Front</span><span>Right</span>
+                </div>
+              )}
             </div>
 
-            <p className="text-[11px] sm:text-xs text-navy/60 mt-3 text-center px-2">
-              Design on this flat print strip. When ready, click &ldquo;Preview&rdquo; to see it wrapped on the 3D mug!
-            </p>
+            {qualityWarnings.map((warning) => (
+              <div key={warning} className="rounded-xl border border-amber-300 bg-amber-50 px-4 py-3 text-xs text-amber-900">
+                {warning}
+              </div>
+            ))}
 
-            <div className="flex flex-wrap justify-center gap-2 sm:gap-3 mt-4">
-              <button
-                onClick={handleDeleteSelected}
-                disabled={!hasSelection}
-                className="text-xs font-semibold py-2 px-3 rounded-xl border border-border flex items-center gap-1.5 text-navy/80 hover:text-red hover:border-red/40 disabled:opacity-30 disabled:cursor-not-allowed transition bg-white shadow-xs"
-              >
-                <Trash2 size={13} /> Delete Selected
+            <div className="flex flex-wrap justify-center gap-2">
+              <button type="button" onClick={removeSelected} disabled={!hasSelection} className="rounded-xl border border-border bg-white px-3 py-2 text-xs font-semibold text-navy disabled:opacity-30">
+                <Trash2 size={13} className="inline mr-1" /> Delete
               </button>
-              <button
-                onClick={handleReset}
-                className="text-xs font-semibold py-2 px-3 rounded-xl border border-border flex items-center gap-1.5 text-navy/80 hover:text-red hover:border-red/40 transition bg-white shadow-xs"
-              >
-                <RotateCcw size={13} /> Reset Canvas
+              <button type="button" onClick={resetCanvas} className="rounded-xl border border-border bg-white px-3 py-2 text-xs font-semibold text-navy">
+                <RotateCcw size={13} className="inline mr-1" /> Reset
               </button>
-              <button
-                onClick={handleSwitchToPreview}
-                className="text-xs font-semibold py-2 px-4 rounded-xl bg-navy text-white hover:bg-navy-dark transition flex items-center gap-1.5 shadow-xs"
-              >
-                <Eye size={13} /> 👁️ View on 3D Mug
+              <button type="button" onClick={showPreview} className="rounded-xl bg-navy px-4 py-2 text-xs font-semibold text-white">
+                <Eye size={13} className="inline mr-1" /> Preview
               </button>
             </div>
           </div>
 
-          {/* Controls Sidebar */}
-          <div className="space-y-6 bg-white p-4 sm:p-6 rounded-2xl border border-border shadow-xs">
+          <div className="space-y-5 rounded-2xl border border-border bg-white p-5 shadow-xs">
             <div>
-              <h2 className="font-display text-xl sm:text-2xl font-semibold text-navy mb-1">{name}</h2>
-              <p className="text-red font-bold text-lg">Starting ₹{price}</p>
+              <h2 className="font-display text-xl font-semibold text-navy">{name}</h2>
+              <p className="font-bold text-red">Starting ₹{price}</p>
             </div>
 
             {config.fields.imageUpload && (
               <div>
-                <div className="flex items-center justify-between mb-2">
-                  <p className="text-xs font-semibold text-navy/60 uppercase tracking-wide">
-                    {hasUploadedPhoto ? "Your Uploaded Photo" : "Upload Your Photo / Logo"}
-                  </p>
-                  {hasUploadedPhoto && (
-                    <span className="text-[11px] font-semibold text-teal">✓ Active on design</span>
-                  )}
-                </div>
-
-                <input
-                  ref={fileInputRef}
-                  type="file"
-                  accept="image/jpeg,image/png,image/webp"
-                  className="hidden"
-                  onChange={handleFileChange}
-                />
-
-                <button
-                  onClick={() => fileInputRef.current?.click()}
-                  disabled={uploading}
-                  className={`w-full border-2 border-dashed rounded-xl py-4 sm:py-5 flex flex-col items-center justify-center gap-1.5 transition active:scale-[0.99] disabled:opacity-60 ${
-                    hasUploadedPhoto
-                      ? "border-teal/60 bg-teal/5 text-navy"
-                      : "border-gold/60 text-navy/70 hover:bg-offwhite"
-                  }`}
-                >
-                  {uploading ? (
-                    <Loader2 size={22} className="animate-spin text-gold" />
-                  ) : (
-                    <Upload size={22} className={hasUploadedPhoto ? "text-teal" : "text-gold"} />
-                  )}
-                  <span className="text-xs sm:text-sm font-semibold">
-                    {uploading
-                      ? "Uploading photo to cloud..."
-                      : hasUploadedPhoto
-                      ? "Click to Replace Photo"
-                      : "Click to upload photo or logo"}
-                  </span>
-                  <span className="text-[11px] text-navy/50">
-                    Supports high-resolution PNG, JPG and WebP
-                  </span>
+                <input ref={fileInputRef} type="file" accept="image/jpeg,image/png,image/webp" className="hidden" onChange={handleFileChange} />
+                <button type="button" onClick={() => fileInputRef.current?.click()} disabled={uploading} className="w-full rounded-xl border-2 border-dashed border-gold/60 px-4 py-5 text-center text-sm font-semibold text-navy disabled:opacity-60">
+                  {uploading ? <Loader2 size={20} className="mx-auto mb-1 animate-spin text-gold" /> : <Upload size={20} className="mx-auto mb-1 text-gold" />}
+                  {hasUploadedPhoto ? "Replace Photo" : "Upload Photo"}
+                  {uploading && <span className="mt-1 block text-[11px] text-navy/50">{uploadProgress}% uploaded</span>}
                 </button>
-
                 {hasUploadedPhoto && (
-                  <div className="grid grid-cols-3 gap-2 mt-2.5">
-                    <button
-                      type="button"
-                      onClick={handleFitImage}
-                      className="text-xs font-medium py-1.5 px-2 rounded-lg border border-border bg-white text-navy hover:border-gold transition flex items-center justify-center gap-1"
-                    >
-                      <Maximize2 size={12} /> Center
+                  <div className="mt-2 grid grid-cols-2 gap-2">
+                    <button type="button" onClick={fillImage} className="rounded-lg border border-border py-2 text-xs font-semibold text-navy">
+                      Fill
                     </button>
-                    <button
-                      type="button"
-                      onClick={handleFillArea}
-                      className="text-xs font-medium py-1.5 px-2 rounded-lg border border-border bg-white text-navy hover:border-gold transition"
-                    >
-                      Fill Area
-                    </button>
-                    <button
-                      type="button"
-                      onClick={handleRemovePhoto}
-                      className="text-xs font-medium py-1.5 px-2 rounded-lg border border-border bg-white text-navy/70 hover:text-red hover:border-red/40 transition"
-                    >
-                      Remove
+                    <button type="button" onClick={fitImage} className="rounded-lg border border-border py-2 text-xs font-semibold text-navy">
+                      <Maximize2 size={12} className="inline mr-1" /> Fit
                     </button>
                   </div>
                 )}
@@ -826,261 +662,110 @@ export default function CustomizeCanvas({
 
             {config.fields.text && (
               <div>
-                <p className="text-xs font-semibold text-navy/60 uppercase tracking-wide mb-2 flex items-center gap-1.5">
-                  <Type size={14} /> Add Custom Text
-                </p>
-                <div className="flex gap-2 mb-3">
-                  <input
-                    value={textValue}
-                    onChange={(e) => setTextValue(e.target.value)}
-                    maxLength={config.fields.maxTextLength}
-                    placeholder="e.g. Best Dad Ever"
-                    className="flex-1 text-sm border border-border rounded-lg px-3 py-2.5 outline-none focus:border-gold"
-                  />
-                  <button
-                    onClick={handleAddText}
-                    className="bg-navy text-white text-xs font-semibold px-4 rounded-lg hover:bg-navy-dark shrink-0 flex items-center gap-1.5 transition active:scale-95"
-                  >
-                    <ImagePlus size={14} /> Add
-                  </button>
+                <p className="mb-2 text-xs font-semibold uppercase tracking-wide text-navy/60"><Type size={13} className="inline mr-1" /> Add Text</p>
+                <div className="flex gap-2">
+                  <input value={textValue} onChange={(event) => setTextValue(event.target.value)} maxLength={config.fields.maxTextLength} className="min-w-0 flex-1 rounded-lg border border-border px-3 py-2 text-sm outline-none focus:border-gold" placeholder="Your text" />
+                  <button type="button" onClick={addText} className="rounded-lg bg-navy px-3 text-xs font-semibold text-white"><ImagePlus size={14} /></button>
                 </div>
-
                 {config.fields.fontChoice && (
-                  <div className="mb-3">
-                    <p className="text-[11px] font-medium text-navy/50 mb-1.5">Select Font Style:</p>
-                    <div className="flex flex-wrap gap-2">
-                      {config.fields.fonts.map((f) => (
-                        <button
-                          key={f}
-                          onClick={() => {
-                            setFont(f);
-                            applyStyleToSelection({ font: f });
-                          }}
-                          className={`text-xs px-3.5 py-1.5 rounded-full border transition active:scale-95 ${
-                            font === f ? "bg-navy text-white border-navy font-semibold" : "border-border text-navy hover:border-navy"
-                          }`}
-                          style={{ fontFamily: f }}
-                        >
-                          {f}
-                        </button>
-                      ))}
-                    </div>
+                  <div className="mt-3 flex flex-wrap gap-1.5">
+                    {config.fields.fonts.map((option) => (
+                      <button key={option} type="button" onClick={() => { setFont(option); updateSelectedText({ font: option }); }} className={`rounded-full border px-2.5 py-1 text-[11px] ${font === option ? "border-navy bg-navy text-white" : "border-border text-navy"}`}>
+                        {option}
+                      </button>
+                    ))}
                   </div>
                 )}
-
                 {config.fields.textColorChoice && (
-                  <div>
-                    <p className="text-[11px] font-medium text-navy/50 mb-1.5">Select Text Colour:</p>
-                    <div className="flex items-center gap-2">
-                      {config.fields.colors.map((c) => (
-                        <button
-                          key={c}
-                          onClick={() => {
-                            setTextColor(c);
-                            applyStyleToSelection({ color: c });
-                          }}
-                          className={`h-7 w-7 rounded-full border-2 transition active:scale-95 ${
-                            textColor === c ? "border-gold scale-110 shadow-xs" : "border-transparent"
-                          }`}
-                          style={{ backgroundColor: c }}
-                        />
-                      ))}
-                    </div>
+                  <div className="mt-3 flex gap-2">
+                    {config.fields.colors.map((color) => (
+                      <button key={color} type="button" aria-label={`Use ${color}`} onClick={() => { setTextColor(color); updateSelectedText({ color }); }} className={`h-7 w-7 rounded-full border-2 ${textColor === color ? "border-gold" : "border-transparent"}`} style={{ backgroundColor: color }} />
+                    ))}
                   </div>
                 )}
               </div>
             )}
 
-            <button
-              onClick={handleSwitchToPreview}
-              className="w-full bg-navy text-white font-semibold py-3.5 rounded-full hover:bg-navy-dark transition flex items-center justify-center gap-2 text-sm shadow-md"
-            >
-              <Eye size={16} />
-              <span>Next: Preview on 3D Mug</span>
-              <ArrowRight size={16} />
+            <button type="button" onClick={showPreview} className="w-full rounded-full bg-navy py-3.5 text-sm font-semibold text-white">
+              Preview
             </button>
           </div>
         </div>
-      </div>
-
-      {/* VIEW 2: ZAZZLE 3D PRODUCT MOCKUP REVIEW (Zazzle Photo 5) */}
-      <div className={activeTab === "preview" ? "block" : "hidden"}>
-        <div className="grid grid-cols-1 lg:grid-cols-[100px_1fr_380px] gap-6 items-start">
-          {/* Angle Thumbnails (Left Column like Zazzle Photo 5) */}
-          <div className="flex lg:flex-col gap-2.5 overflow-x-auto lg:overflow-visible pb-2 lg:pb-0">
-            {angleMockups.map((angle) => (
-              <button
-                key={angle.id}
-                type="button"
-                onClick={() => setSelectedAngle(angle.id)}
-                className={`relative flex flex-col items-center p-1.5 rounded-xl border transition shrink-0 ${
-                  selectedAngle === angle.id
-                    ? "border-navy ring-2 ring-navy/20 bg-white shadow-xs"
-                    : "border-border bg-offwhite hover:border-navy/40"
-                }`}
-              >
-                <div className="relative w-16 h-16 sm:w-20 sm:h-20 rounded-lg overflow-hidden bg-white">
-                  <Image src={angle.url} alt={angle.name} fill className="object-contain p-1" />
+      ) : (
+        <div className="grid grid-cols-1 lg:grid-cols-[110px_minmax(0,1fr)_360px] gap-5 items-start">
+          <div className="flex gap-2 overflow-x-auto lg:flex-col">
+            {template.views.map((view) => (
+              <button key={view.id} type="button" onClick={() => setSelectedViewId(view.id)} className={`shrink-0 rounded-xl border p-1.5 ${selectedView?.id === view.id ? "border-navy ring-2 ring-navy/10" : "border-border"}`}>
+                <div className="relative h-20 w-20 overflow-hidden rounded-lg bg-offwhite">
+                  {view.mockupUrl ? <Image src={view.mockupUrl} alt={view.name} fill className="object-contain" /> : <div className="flex h-full items-center justify-center text-[10px] text-navy/40">No mockup</div>}
                 </div>
-                <span className="text-[10px] font-semibold text-navy/70 mt-1">{angle.name}</span>
+                <span className="mt-1 block text-[10px] font-semibold text-navy">{view.name}</span>
               </button>
             ))}
           </div>
 
-          {/* Photorealistic Product Mockup with Design Overlay (Center Column) */}
-          <div className="bg-white rounded-2xl border border-border p-4 sm:p-6 flex flex-col items-center shadow-xs">
-            <div className="relative w-full max-w-[480px] aspect-square rounded-xl overflow-hidden bg-[#FAF9F6] flex items-center justify-center">
-              {/* Clean Blank Mug Photo */}
-              <Image
-                src={currentAngleObj.url}
-                alt={currentAngleObj.name}
-                fill
-                priority
-                className="object-contain"
-              />
-
-              {/* Customer Artwork ONLY (transparent PNG) overlaid onto ceramic mug with multiply blend */}
-              {artworkSnapshot && (
-                <div
-                  className="absolute pointer-events-none transition-all duration-300"
-                  style={{
-                    left: `${currentAngleObj.printArea.xPct}%`,
-                    top: `${currentAngleObj.printArea.yPct}%`,
-                    width: `${currentAngleObj.printArea.widthPct}%`,
-                    height: `${currentAngleObj.printArea.heightPct}%`,
-                  }}
-                >
-                  <div className="relative w-full h-full mix-blend-multiply flex items-center justify-center">
+          <div className="rounded-2xl border border-border bg-white p-4 sm:p-6 shadow-xs">
+            <div className="relative mx-auto aspect-square w-full max-w-[520px] overflow-hidden rounded-xl bg-offwhite">
+              {selectedView?.mockupUrl ? <Image src={selectedView.mockupUrl} alt={selectedView.name} fill className="object-contain" priority /> : null}
+              {selectedView && artworkSnapshot && (
+                <div className="absolute" style={{
+                  left: `${selectedView.printArea.xPct}%`,
+                  top: `${selectedView.printArea.yPct}%`,
+                  width: `${selectedView.printArea.widthPct}%`,
+                  height: `${selectedView.printArea.heightPct}%`,
+                  transform: `rotate(${selectedView.rotation ?? 0}deg)`,
+                  ...previewMaskStyle(template),
+                }}>
+                  <div className="relative h-full w-full overflow-hidden">
                     {/* eslint-disable-next-line @next/next/no-img-element */}
-                    <img
-                      src={artworkSnapshot}
-                      alt="Custom Design"
-                      className="w-full h-full object-contain filter drop-shadow-xs"
-                    />
+                    <img src={artworkSnapshot} alt="Your design preview" className="absolute max-w-none" style={{ ...sourceStyle(selectedView.source), objectFit: "fill" }} />
                   </div>
                 </div>
               )}
             </div>
-
-            <div className="flex items-center gap-4 mt-4 text-xs text-navy/60">
-              <span className="flex items-center gap-1 text-teal font-medium">
-                <CheckCircle2 size={14} /> 3D Realistic Preview
-              </span>
-              <span>•</span>
-              <span>Angle: {currentAngleObj.name}</span>
-              <span>•</span>
-              <button
-                type="button"
-                onClick={() => setActiveTab("design")}
-                className="text-gold font-semibold hover:underline"
-              >
-                Edit Artwork
-              </button>
-            </div>
+            <p className="mt-3 text-center text-xs text-navy/60">
+              {selectedView?.name} · placement is mapped from the same design canvas.
+            </p>
           </div>
 
-          {/* Review Checklist & Checkout Sidebar (Right Column like Zazzle Photo 5) */}
-          <div className="space-y-5 bg-white p-5 sm:p-6 rounded-2xl border border-border shadow-xs">
+          <div className="space-y-5 rounded-2xl border border-border bg-white p-5 shadow-xs">
             <div>
-              <p className="text-xs font-semibold text-gold uppercase tracking-widest mb-1">Final Review</p>
-              <h2 className="font-display text-xl sm:text-2xl font-bold text-navy">Let&apos;s make sure it&apos;s just right</h2>
-              <p className="text-xs text-navy/60 mt-1">Review your mockup before adding to cart.</p>
-            </div>
-
-            <div className="bg-offwhite rounded-xl p-4 border border-border space-y-2.5 text-xs text-navy/80">
-              <p className="font-semibold text-navy uppercase text-[11px] tracking-wide">Things to check:</p>
-              <div className="flex items-start gap-2">
-                <CheckCircle2 size={14} className="text-teal shrink-0 mt-0.5" />
-                <span>Photo and custom text are aligned properly</span>
-              </div>
-              <div className="flex items-start gap-2">
-                <CheckCircle2 size={14} className="text-teal shrink-0 mt-0.5" />
-                <span>Names, dates and spelling are accurate</span>
-              </div>
-              <div className="flex items-start gap-2">
-                <CheckCircle2 size={14} className="text-teal shrink-0 mt-0.5" />
-                <span>High-resolution sublimation print ({dimensions.widthInches}&quot; × {dimensions.heightInches}&quot;)</span>
-              </div>
+              <p className="text-xs font-semibold uppercase tracking-widest text-gold">Final Review</p>
+              <h2 className="font-display text-xl font-semibold text-navy">Check your design</h2>
             </div>
 
             {config.fields.sizeChoice && config.fields.sizes.length > 0 && (
               <div>
-                <label className="text-xs font-semibold text-navy/60 uppercase tracking-wide block mb-1.5">
-                  Select Size
-                </label>
+                <p className="mb-2 text-xs font-semibold uppercase tracking-wide text-navy/60">Size</p>
                 <div className="flex flex-wrap gap-2">
-                  {config.fields.sizes.map((s) => (
-                    <button
-                      key={s}
-                      type="button"
-                      onClick={() => setSize(s)}
-                      className={`text-xs px-3 py-1.5 rounded-lg border font-semibold ${
-                        size === s ? "bg-navy text-white border-navy" : "border-border text-navy"
-                      }`}
-                    >
-                      {s}
-                    </button>
+                  {config.fields.sizes.map((option) => (
+                    <button key={option} type="button" onClick={() => setSize(option)} className={`rounded-lg border px-3 py-1.5 text-xs font-semibold ${size === option ? "border-navy bg-navy text-white" : "border-border text-navy"}`}>{option}</button>
                   ))}
                 </div>
               </div>
             )}
 
             {config.fields.specialInstructions && (
-              <div>
-                <label className="text-xs font-semibold text-navy/60 uppercase tracking-wide mb-1.5 block">
-                  Special Notes for Print Team
-                </label>
-                <textarea
-                  rows={2}
-                  value={instructions}
-                  onChange={(e) => setInstructions(e.target.value)}
-                  placeholder="Any special requests or instructions?"
-                  className="w-full text-xs border border-border rounded-lg px-3 py-2 outline-none focus:border-gold resize-none"
-                />
-              </div>
+              <textarea rows={3} value={instructions} onChange={(event) => setInstructions(event.target.value)} placeholder="Special instructions (optional)" className="w-full resize-none rounded-lg border border-border px-3 py-2 text-xs outline-none focus:border-gold" />
             )}
 
-            <div className="pt-3 border-t border-border flex items-baseline justify-between">
-              <div>
-                <span className="text-xs text-navy/50 block">Price per item</span>
-                <span className="text-xl font-bold text-navy">₹{price}</span>
-              </div>
-              <div className="flex items-center gap-1.5 text-xs text-teal font-semibold">
-                <ShieldCheck size={14} /> Quality Verified
-              </div>
+            <div className="rounded-xl bg-offwhite p-3 text-xs text-navy/70">
+              <p><CheckCircle2 size={13} className="inline mr-1 text-teal" /> Print output: {output.widthPx} × {output.heightPx}px at {template.physical.dpi} DPI</p>
+              <p className="mt-1"><ShieldCheck size={13} className="inline mr-1 text-teal" /> Original upload + editable design state are saved with the order.</p>
             </div>
 
-            <label className="flex items-start gap-3 text-xs sm:text-sm text-navy/80 cursor-pointer bg-offwhite p-3 rounded-xl border border-border">
-              <input
-                type="checkbox"
-                checked={approved}
-                onChange={(e) => setApproved(e.target.checked)}
-                className="mt-0.5 accent-gold h-4 w-4 shrink-0"
-              />
-              <span className="text-xs">
-                I have reviewed and approved my design mockup for production.
-              </span>
+            <label className="flex items-start gap-2 rounded-xl border border-border bg-offwhite p-3 text-xs text-navy/80">
+              <input type="checkbox" checked={approved} onChange={(event) => setApproved(event.target.checked)} className="mt-0.5 accent-gold" />
+              I have reviewed and approved this design for production.
             </label>
 
-            <button
-              onClick={handleAddToCart}
-              disabled={submitting || !approved}
-              className="w-full bg-gold text-navy-dark font-semibold py-4 rounded-full hover:brightness-110 transition disabled:opacity-50 disabled:cursor-not-allowed flex items-center justify-center gap-2 text-base shadow-md active:scale-[0.99]"
-            >
-              {submitting && <Loader2 size={18} className="animate-spin" />}
-              {submitting ? "Adding to Cart..." : "Add to Cart"}
+            <button type="button" onClick={handleAddToCart} disabled={submitting || !approved || uploading} className="w-full rounded-full bg-gold py-4 font-semibold text-navy-dark disabled:opacity-50">
+              {submitting ? <><Loader2 size={16} className="inline mr-2 animate-spin" />Saving design...</> : "Add to Cart"}
             </button>
-
-            <button
-              type="button"
-              onClick={() => setActiveTab("design")}
-              className="w-full text-center text-xs font-medium text-navy/60 hover:text-navy"
-            >
-              ← Need changes? Edit design
-            </button>
+            <button type="button" onClick={() => setMode("design")} className="w-full text-xs font-semibold text-navy/60">← Edit design</button>
           </div>
         </div>
-      </div>
+      )}
     </div>
   );
 }
