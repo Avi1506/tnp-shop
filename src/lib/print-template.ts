@@ -30,7 +30,7 @@ export function normalizePrintTemplate(
     heightInches?: number;
   }
 ): PrintTemplate {
-  let source: Partial<PrintTemplate> | null | undefined =
+  const source: Partial<PrintTemplate> | null | undefined =
     typeof raw === "string"
       ? (() => {
           try {
@@ -79,8 +79,8 @@ export function normalizePrintTemplate(
     safeArea: source?.safeArea ?? DEFAULT_SAFE,
     bleed: source?.bleed ?? null,
     maskUrl: source?.maskUrl ?? null,
-    views: source?.views?.length ? raw.views : [fallbackView],
-    widthInches: raw?.widthInches,
+    views: source?.views?.length ? source.views : [fallbackView],
+    widthInches: source?.widthInches,
     heightInches: source?.heightInches,
     blankMockupUrl: source?.blankMockupUrl,
     printAreaOnMockup: source?.printAreaOnMockup,
