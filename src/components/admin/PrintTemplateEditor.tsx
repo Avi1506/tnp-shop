@@ -61,7 +61,26 @@ export default function PrintTemplateEditor({
       printType === "cylindrical"
         ? defaultViews(printType, first?.mockupUrl ?? "", first?.printArea)
         : [first ?? defaultViews(printType)[0]];
-    patch({ printType, views });
+    patch({
+      printType,
+      views,
+      cylindrical3d:
+        printType === "cylindrical"
+          ? template.cylindrical3d ?? {
+              modelRef: "procedural:mug-v1",
+              radius: 1.18,
+              bodyHeight: 2.45,
+              wrapCoverageDeg: 270,
+              wrapOffsetDeg: 0,
+              cameraDistance: 6.2,
+              cameraPitchDeg: 5,
+              baseColor: "#f7f7f4",
+              roughness: 0.34,
+              metalness: 0,
+              handleSide: "right",
+            }
+          : template.cylindrical3d,
+    });
     setSelectedViewId(views[0].id);
   }
 
@@ -228,6 +247,159 @@ export default function PrintTemplateEditor({
         </div>
       </div>
 
+      {template.printType === "cylindrical" && template.cylindrical3d && (
+        <div className="rounded-xl border border-border bg-white p-3">
+          <p className="mb-3 text-xs font-semibold uppercase tracking-wide text-navy/60">
+            3D Product Mapping
+          </p>
+          <div className="grid gap-3 sm:grid-cols-3">
+            <label className="text-[10px] font-semibold text-navy/50">
+              Model
+              <select
+                value={template.cylindrical3d.modelRef}
+                onChange={(event) =>
+                  patch({
+                    cylindrical3d: {
+                      ...template.cylindrical3d!,
+                      modelRef: event.target.value as
+                        | "procedural:mug-v1"
+                        | "procedural:bottle-v1",
+                    },
+                  })
+                }
+                className="mt-1 w-full rounded border border-border bg-white px-2 py-2 text-xs text-navy"
+              >
+                <option value="procedural:mug-v1">Mug</option>
+                <option value="procedural:bottle-v1">Bottle</option>
+              </select>
+            </label>
+
+            <label className="text-[10px] font-semibold text-navy/50">
+              Radius
+              <input
+                type="number"
+                min={0.55}
+                max={3}
+                step={0.05}
+                value={template.cylindrical3d.radius}
+                onChange={(event) =>
+                  patch({
+                    cylindrical3d: {
+                      ...template.cylindrical3d!,
+                      radius: clamp(
+                        safeNumber(event.target.value, 1.18),
+                        0.55,
+                        3
+                      ),
+                    },
+                  })
+                }
+                className="mt-1 w-full rounded border border-border bg-white px-2 py-2 text-xs text-navy"
+              />
+            </label>
+
+            <label className="text-[10px] font-semibold text-navy/50">
+              Body Height
+              <input
+                type="number"
+                min={1.2}
+                max={6}
+                step={0.05}
+                value={template.cylindrical3d.bodyHeight}
+                onChange={(event) =>
+                  patch({
+                    cylindrical3d: {
+                      ...template.cylindrical3d!,
+                      bodyHeight: clamp(
+                        safeNumber(event.target.value, 2.45),
+                        1.2,
+                        6
+                      ),
+                    },
+                  })
+                }
+                className="mt-1 w-full rounded border border-border bg-white px-2 py-2 text-xs text-navy"
+              />
+            </label>
+
+            <label className="text-[10px] font-semibold text-navy/50">
+              Wrap Coverage (°)
+              <input
+                type="number"
+                min={30}
+                max={355}
+                step={1}
+                value={template.cylindrical3d.wrapCoverageDeg}
+                onChange={(event) =>
+                  patch({
+                    cylindrical3d: {
+                      ...template.cylindrical3d!,
+                      wrapCoverageDeg: clamp(
+                        safeNumber(event.target.value, 270),
+                        30,
+                        355
+                      ),
+                    },
+                  })
+                }
+                className="mt-1 w-full rounded border border-border bg-white px-2 py-2 text-xs text-navy"
+              />
+            </label>
+
+            <label className="text-[10px] font-semibold text-navy/50">
+              Wrap Offset (°)
+              <input
+                type="number"
+                min={-180}
+                max={180}
+                step={1}
+                value={template.cylindrical3d.wrapOffsetDeg ?? 0}
+                onChange={(event) =>
+                  patch({
+                    cylindrical3d: {
+                      ...template.cylindrical3d!,
+                      wrapOffsetDeg: clamp(
+                        safeNumber(event.target.value, 0),
+                        -180,
+                        180
+                      ),
+                    },
+                  })
+                }
+                className="mt-1 w-full rounded border border-border bg-white px-2 py-2 text-xs text-navy"
+              />
+            </label>
+
+            <label className="text-[10px] font-semibold text-navy/50">
+              Camera Distance
+              <input
+                type="number"
+                min={4.5}
+                max={12}
+                step={0.1}
+                value={template.cylindrical3d.cameraDistance ?? 6.2}
+                onChange={(event) =>
+                  patch({
+                    cylindrical3d: {
+                      ...template.cylindrical3d!,
+                      cameraDistance: clamp(
+                        safeNumber(event.target.value, 6.2),
+                        4.5,
+                        12
+                      ),
+                    },
+                  })
+                }
+                className="mt-1 w-full rounded border border-border bg-white px-2 py-2 text-xs text-navy"
+              />
+            </label>
+          </div>
+          <p className="mt-2 text-[10px] leading-relaxed text-navy/50">
+            Safe margins above control the printable vertical band. This model configuration is used by the true 3D preview; the flat print file is unchanged.
+          </p>
+        </div>
+      )}
+
       {(template.shape === "heart" || template.shape === "custom-mask") && (
         <div>
           <p className="mb-1 text-xs font-semibold text-navy/60">Shape Mask</p>
@@ -393,19 +565,26 @@ export default function PrintTemplateEditor({
                       />
                     </label>
                     <label className="text-[10px] text-navy/50">
-                      Rotation
+                      3D View Angle
                       <input
                         type="number"
-                        min={-45}
-                        max={45}
-                        step={0.5}
-                        value={selectedView.rotation ?? 0}
+                        min={-180}
+                        max={180}
+                        step={1}
+                        value={
+                          selectedView.angleDeg ??
+                          (selectedView.id === "left"
+                            ? -65
+                            : selectedView.id === "right"
+                            ? 65
+                            : 0)
+                        }
                         onChange={(event) =>
                           updateView(selectedView.id, {
-                            rotation: clamp(
+                            angleDeg: clamp(
                               safeNumber(event.target.value, 0),
-                              -45,
-                              45
+                              -180,
+                              180
                             ),
                           })
                         }
@@ -462,8 +641,8 @@ export default function PrintTemplateEditor({
                 </div>
 
                 <p className="text-[10px] leading-relaxed text-navy/50">
-                  Curvature, perspective, edge fade and mask affect customer preview only.
-                  The production file remains the flat full-wrap artwork.
+                  Curvature, perspective, edge fade and mask are retained only for the WebGL fallback.
+                  The primary customer preview uses the 3D model settings above; production remains the flat full-wrap artwork.
                 </p>
               </div>
             )}
