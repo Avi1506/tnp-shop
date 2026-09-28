@@ -68,9 +68,9 @@ export async function POST(req: NextRequest) {
       );
     }
 
-    if (contentLength && contentLength > MAX_BYTES) {
+    if (!Number.isInteger(contentLength) || !contentLength || contentLength < 1 || contentLength > MAX_BYTES) {
       return NextResponse.json(
-        { error: "File is too large. Maximum size is 10 MB." },
+        { error: "Invalid file size. Maximum size is 10 MB." },
         { status: 400 }
       );
     }
@@ -97,7 +97,7 @@ export async function POST(req: NextRequest) {
       Bucket: bucket,
       Key: key,
       ContentType: contentType,
-      ...(contentLength ? { ContentLength: contentLength } : {}),
+      ContentLength: contentLength,
     });
 
     const uploadUrl = await getSignedUrl(r2, command, { expiresIn: 300 });

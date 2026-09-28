@@ -18,6 +18,12 @@ export const { handlers, signIn, signOut, auth } = NextAuth({
     signIn: "/login",
     newUser: "/account",
   },
+  logger: {
+    error(error) {
+      if ("type" in error && error.type === "CredentialsSignin") return;
+      console.error("[auth][error]", error);
+    },
+  },
   providers: [
     Credentials({
       name: "credentials",
