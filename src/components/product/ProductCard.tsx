@@ -7,7 +7,6 @@ import { formatINR } from "@/lib/format";
 import { Sparkles, Wand2 } from "lucide-react";
 import type { products } from "@/db/schema";
 import WishlistButton from "./WishlistButton";
-import QuickPersonalizationDrawer from "./QuickPersonalizationDrawer";
 import { trackEvent } from "@/lib/analytics";
 
 type Product = typeof products.$inferSelect;
@@ -21,7 +20,6 @@ const TSHIRT_SWATCHES = [
 export default function ProductCard({ product }: { product: Product }) {
   const [isHovered, setIsHovered] = useState(false);
   const [selectedSwatch, setSelectedSwatch] = useState<string>("white");
-  const [drawerOpen, setDrawerOpen] = useState(false);
 
   const isMagicMug = product.slug.includes("magic-mug") || product.name.toLowerCase().includes("magic mug");
   const isMagicCushion = product.slug.includes("cushion-magic") || product.name.toLowerCase().includes("magic cushion");
@@ -194,7 +192,7 @@ export default function ProductCard({ product }: { product: Product }) {
                 e.preventDefault();
                 e.stopPropagation();
                 trackEvent("primary_cta_clicked", { label: "quick_customize_card_trigger", product: product.name });
-                setDrawerOpen(true);
+                window.location.href = `/products/${product.slug}/customize`;
               }}
               className="w-full text-xs font-semibold py-2.5 px-3 rounded-xl border control-border text-navy bg-white hover:border-[#E65100] hover:text-[#E65100] hover:bg-[#E65100]/5 transition flex items-center justify-center gap-1.5 shadow-2xs touch-target-48"
             >
@@ -205,23 +203,6 @@ export default function ProductCard({ product }: { product: Product }) {
         </div>
       </div>
 
-      {/* Quick Personalization Drawer Modal */}
-      {drawerOpen && (
-        <QuickPersonalizationDrawer
-          isOpen={drawerOpen}
-          onClose={() => setDrawerOpen(false)}
-          product={{
-            id: product.id,
-            slug: product.slug,
-            name: product.name,
-            price: parseFloat(product.startingPrice),
-            mockupImage: baseImage,
-            printArea: product.customization?.printArea,
-            shape: product.customization?.shape,
-            dimensions: product.customization?.dimensions,
-          }}
-        />
-      )}
     </>
   );
 }
