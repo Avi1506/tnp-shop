@@ -14,7 +14,5 @@ jobs:
           node-version: 20
           cache: npm
       - run: npm ci
-      - name: Focused ESLint
-        run: npx eslint next.config.ts src/lib/auth.ts src/lib/razorpay.ts src/app/login/page.tsx src/app/register/page.tsx src/app/api/upload-url/route.ts src/app/api/contact/route.ts
-      - name: Build
-        run: npm run build
+      - name: Production dependency audit
+        run: npm audit --omit=dev --audit-level=low
