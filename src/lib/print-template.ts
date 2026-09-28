@@ -21,7 +21,7 @@ export function outputPixels(template: PrintTemplate) {
 }
 
 export function normalizePrintTemplate(
-  raw: Partial<PrintTemplate> | null | undefined,
+  raw: Partial<PrintTemplate> | string | null | undefined,
   fallback?: {
     mockupImage?: string | null;
     printArea?: PercentBox;
@@ -30,13 +30,24 @@ export function normalizePrintTemplate(
     heightInches?: number;
   }
 ): PrintTemplate {
-  const legacyWidth = raw?.widthInches ?? fallback?.widthInches ?? 8;
-  const legacyHeight = raw?.heightInches ?? fallback?.heightInches ?? 8;
-  const shape = raw?.shape ?? fallback?.shape ?? "rectangle";
-  const legacyArea = raw?.printAreaOnMockup ?? fallback?.printArea ?? { xPct: 25, yPct: 22, widthPct: 50, heightPct: 45 };
-  const legacyMockup = raw?.blankMockupUrl ?? fallback?.mockupImage ?? "";
+  let source: Partial<PrintTemplate> | null | undefined =
+    typeof raw === "string"
+      ? (() => {
+          try {
+            return JSON.parse(raw) as Partial<PrintTemplate>;
+          } catch {
+            return null;
+          }
+        })()
+      : raw;
 
-  const physical = raw?.physical ?? {
+  const legacyWidth = source?.widthInches ?? fallback?.widthInches ?? 8;
+  const legacyHeight = source?.heightInches ?? fallback?.heightInches ?? 8;
+  const shape = source?.shape ?? fallback?.shape ?? "rectangle";
+  const legacyArea = source?.printAreaOnMockup ?? fallback?.printArea ?? { xPct: 25, yPct: 22, widthPct: 50, heightPct: 45 };
+  const legacyMockup = source?.blankMockupUrl ?? fallback?.mockupImage ?? "";
+
+  const physical = source?.physical ?? {
     width: legacyWidth,
     height: legacyHeight,
     unit: "in" as const,
@@ -44,7 +55,7 @@ export function normalizePrintTemplate(
   };
 
   const printType: PrintType =
-    raw?.printType ??
+    source?.printType ??
     (shape === "heart" || shape === "custom-mask" ? "shaped" : "flat");
 
   const fallbackView: MockupView = {
@@ -56,7 +67,7 @@ export function normalizePrintTemplate(
   };
 
   return {
-    templateVersion: raw?.templateVersion ?? 1,
+    templateVersion: source?.templateVersion ?? 1,
     printType,
     shape,
     physical: {
@@ -65,14 +76,14 @@ export function normalizePrintTemplate(
       unit: physical.unit === "cm" ? "cm" : "in",
       dpi: Math.min(600, Math.max(72, Number(physical.dpi) || 300)),
     },
-    safeArea: raw?.safeArea ?? DEFAULT_SAFE,
-    bleed: raw?.bleed ?? null,
-    maskUrl: raw?.maskUrl ?? null,
-    views: raw?.views?.length ? raw.views : [fallbackView],
+    safeArea: source?.safeArea ?? DEFAULT_SAFE,
+    bleed: source?.bleed ?? null,
+    maskUrl: source?.maskUrl ?? null,
+    views: source?.views?.length ? raw.views : [fallbackView],
     widthInches: raw?.widthInches,
-    heightInches: raw?.heightInches,
-    blankMockupUrl: raw?.blankMockupUrl,
-    printAreaOnMockup: raw?.printAreaOnMockup,
+    heightInches: source?.heightInches,
+    blankMockupUrl: source?.blankMockupUrl,
+    printAreaOnMockup: source?.printAreaOnMockup,
   };
 }
 
