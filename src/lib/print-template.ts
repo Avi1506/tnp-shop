@@ -91,13 +91,23 @@ export function resolveProductTemplate(
   categoryTemplate: PrintTemplate | null | undefined,
   config: CustomizationConfig
 ): PrintTemplate {
-  return normalizePrintTemplate(config.templateOverride ?? categoryTemplate, {
+  const hasOverride = Boolean(config.templateOverride);
+  const resolved = normalizePrintTemplate(config.templateOverride ?? categoryTemplate, {
     mockupImage: config.mockupImage,
     printArea: config.printArea,
     shape: config.shape,
     widthInches: config.dimensions?.widthInches,
     heightInches: config.dimensions?.heightInches,
   });
+
+  if (!hasOverride && config.mockupImage) {
+    resolved.views = resolved.views.map((view) => ({
+      ...view,
+      mockupUrl: view.mockupUrl || config.mockupImage || "",
+    }));
+  }
+
+  return resolved;
 }
 
 export function bumpTemplateVersion(template: PrintTemplate): PrintTemplate {
