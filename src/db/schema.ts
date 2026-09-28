@@ -88,12 +88,13 @@ export type MockupView = {
   printArea: PercentBox;
   source: PercentBox;
   rotation?: number;
+  angleDeg?: number; // 3D product rotation for this preview view
 
-  // Preview-only surface mapping. These never affect print-ready artwork.
-  curvatureStrength?: number; // 0 = flat, 1 = normal cylinder, >1 = stronger curve
-  perspectiveStrength?: number; // -1..1, shifts/compresses the visible surface by angle
-  edgeFalloff?: number; // 0..1, softly hides the far cylinder edges
-  surfaceMaskUrl?: string | null; // optional alpha mask for handle/body occlusion
+  // Preview-only 2D fallback mapping. These never affect print-ready artwork.
+  curvatureStrength?: number;
+  perspectiveStrength?: number;
+  edgeFalloff?: number;
+  surfaceMaskUrl?: string | null;
   blendMode?: "normal" | "multiply";
 
   // Legacy preview transform retained for compatibility with older JSONB templates.
@@ -103,6 +104,20 @@ export type MockupView = {
     borderRadiusPct?: number;
     perspective?: number;
   };
+};
+
+export type Cylindrical3DConfig = {
+  modelRef: "procedural:mug-v1" | "procedural:bottle-v1";
+  radius: number;
+  bodyHeight: number;
+  wrapCoverageDeg: number;
+  wrapOffsetDeg?: number;
+  cameraDistance?: number;
+  cameraPitchDeg?: number;
+  baseColor?: string;
+  roughness?: number;
+  metalness?: number;
+  handleSide?: "left" | "right";
 };
 
 export type PrintTemplate = {
@@ -130,6 +145,7 @@ export type PrintTemplate = {
   } | null;
   maskUrl?: string | null;
   views: MockupView[];
+  cylindrical3d?: Cylindrical3DConfig | null;
 
   // Legacy fields retained so existing JSONB data can be normalized safely.
   widthInches?: number;
