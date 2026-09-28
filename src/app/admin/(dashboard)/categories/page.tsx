@@ -36,9 +36,9 @@ function preset(kind: "mug" | "bottle" | "tshirt" | "oversized" | "cushion" | "h
         edgeFalloff: view.id === "front" ? 0.3 : 0.36,
         mockupUrl:
           view.id === "left"
-            ? "/images/mockups/mug-left.jpg"
+            ? "/images/mockups/mug-handle-left.jpg"
             : view.id === "right"
-            ? "/images/mockups/mug-right.jpg"
+            ? "/images/mockups/mug-left.jpg"
             : "/images/mockups/mug-front.jpg",
       })),
     };
