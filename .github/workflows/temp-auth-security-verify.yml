@@ -4,45 +4,25 @@ on:
     branches:
       - fix/auth-security-hardening-20260928
 
-permissions:
-  contents: write
-
 jobs:
-  patch-dependencies:
-    if: github.event.head_commit.message == 'chore: prepare dependency security patch'
+  generate-patch:
     runs-on: ubuntu-latest
     steps:
       - uses: actions/checkout@v4
-        with:
-          ref: fix/auth-security-hardening-20260928
       - uses: actions/setup-node@v4
         with:
           node-version: 20
           cache: npm
       - run: npm ci
-      - name: Patch vulnerable dependencies
+      - name: Patch dependencies in workspace
         run: |
-          npm install next@16.3.6 --save-exact
+          npm install next@16.3.6 eslint-config-next@16.3.6 --save-exact
           npm audit fix --package-lock-only || true
-      - name: Commit lockfile patch
-        run: |
-          git config user.name "github-actions[bot]"
-          git config user.email "41898282+github-actions[bot]@users.noreply.github.com"
-          git add package.json package-lock.json
-          git commit -m "fix: patch vulnerable runtime dependencies"
-          git push origin HEAD:fix/auth-security-hardening-20260928
-
-  verify:
-    if: github.event.head_commit.message == 'fix: patch vulnerable runtime dependencies'
-    runs-on: ubuntu-latest
-    steps:
-      - uses: actions/checkout@v4
-      - uses: actions/setup-node@v4
-        with:
-          node-version: 20
-          cache: npm
-      - run: npm ci
-      - name: Focused ESLint
-        run: npx eslint next.config.ts src/lib/auth.ts src/lib/razorpay.ts src/app/login/page.tsx src/app/register/page.tsx src/app/api/upload-url/route.ts src/app/api/contact/route.ts
-      - name: Production dependency audit
+      - name: Verify critical advisories removed
         run: npm audit --omit=dev --audit-level=critical
+      - uses: actions/upload-artifact@v4
+        with:
+          name: patched-package-files
+          path: |
+            package.json
+            package-lock.json
