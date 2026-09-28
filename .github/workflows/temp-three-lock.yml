@@ -1,0 +1,24 @@
+name: Temporary generate three dependency lock
+on:
+  push:
+    branches:
+      - feat/customization-engine-v2-20260928
+
+jobs:
+  generate:
+    if: github.event.head_commit.message == 'chore: generate three dependency lock'
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+      - uses: actions/setup-node@v4
+        with:
+          node-version: 22
+          cache: npm
+      - run: npm ci
+      - run: npm install three@0.186.1 --save-exact
+      - uses: actions/upload-artifact@v4
+        with:
+          name: three-package-files
+          path: |
+            package.json
+            package-lock.json
