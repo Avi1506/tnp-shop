@@ -24,6 +24,7 @@ import type {
   SavedDesignState,
 } from "@/db/schema";
 import { outputPixels, resolveProductTemplate, sourceStyle } from "@/lib/print-template";
+import CylindricalSurfacePreview from "@/components/product/CylindricalSurfacePreview";
 import { uploadFile } from "@/lib/client-upload";
 import { useCart } from "@/components/cart/CartContext";
 
@@ -750,23 +751,44 @@ export default function CustomizeCanvas({
             <div className="relative mx-auto aspect-square w-full max-w-[520px] overflow-hidden rounded-xl bg-offwhite">
               {selectedView?.mockupUrl ? <Image src={selectedView.mockupUrl} alt={selectedView.name} fill className="object-contain" priority /> : null}
               {selectedView && artworkSnapshot && (
-                <div className="absolute" style={{
-                  left: `${selectedView.printArea.xPct}%`,
-                  top: `${selectedView.printArea.yPct}%`,
-                  width: `${selectedView.printArea.widthPct}%`,
-                  height: `${selectedView.printArea.heightPct}%`,
-                  transform: `rotate(${selectedView.rotation ?? 0}deg)`,
-                  ...previewMaskStyle(template),
-                }}>
-                  <div className="relative h-full w-full overflow-hidden">
-                    {/* eslint-disable-next-line @next/next/no-img-element */}
-                    <img src={artworkSnapshot} alt="Your design preview" className="absolute max-w-none" style={{ ...sourceStyle(selectedView.source), objectFit: "fill" }} />
-                  </div>
+                <div
+                  className="absolute"
+                  style={{
+                    left: `${selectedView.printArea.xPct}%`,
+                    top: `${selectedView.printArea.yPct}%`,
+                    width: `${selectedView.printArea.widthPct}%`,
+                    height: `${selectedView.printArea.heightPct}%`,
+                    transform: `rotate(${selectedView.rotation ?? 0}deg)`,
+                    transformOrigin: "center",
+                    ...(template.printType === "cylindrical"
+                      ? { overflow: "visible" }
+                      : previewMaskStyle(template)),
+                  }}
+                >
+                  {template.printType === "cylindrical" ? (
+                    <CylindricalSurfacePreview
+                      artworkUrl={artworkSnapshot}
+                      view={selectedView}
+                    />
+                  ) : (
+                    <div className="relative h-full w-full overflow-hidden">
+                      {/* eslint-disable-next-line @next/next/no-img-element */}
+                      <img
+                        src={artworkSnapshot}
+                        alt="Your design preview"
+                        className="absolute max-w-none"
+                        style={{
+                          ...sourceStyle(selectedView.source),
+                          objectFit: "fill",
+                        }}
+                      />
+                    </div>
+                  )}
                 </div>
               )}
             </div>
             <p className="mt-3 text-center text-xs text-navy/60">
-              {selectedView?.name} · placement is mapped from the same design canvas.
+              {selectedView?.name} · your design uses the same full-wrap artwork in every view.
             </p>
           </div>
 
