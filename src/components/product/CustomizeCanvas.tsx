@@ -519,7 +519,7 @@ export default function CustomizeCanvas({
         uploadFile(await dataUrlToFile(printData, "print-ready.png"), "print-ready"),
       ]);
 
-      const fabricJson = canvas.toJSON(["isCustomImage", "isGuide", "uploadUrl"]);
+      const fabricJson = canvas.toObject(["isCustomImage", "isGuide", "uploadUrl"]);
       const designState: SavedDesignState = {
         version: 1,
         fabric: fabricJson as Record<string, unknown>,
