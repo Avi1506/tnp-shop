@@ -70,18 +70,63 @@ export const passwordResetTokens = pgTable("password_reset_tokens", {
 // Print template defines the physical print dimensions and blank mockup for a
 // product category (e.g., Mug = 7.5" × 3.5" rectangle). Set in Admin → Categories.
 // When a product is customizable, the customizer reads these from the category.
-export type PrintTemplate = {
-  shape: "rectangle" | "circle" | "square";   // print area shape
-  widthInches: number;                         // physical print width
-  heightInches: number;                        // physical print height (same as width for circle/square)
-  blankMockupUrl: string;                      // URL of blank product photo (e.g., plain white mug)
-  // Where on the blank mockup image the print area sits (in % of the image dimensions)
-  printAreaOnMockup: {
-    xPct: number;      // left offset as % of image width
-    yPct: number;      // top offset as % of image height
-    widthPct: number;  // print area width as % of image width
-    heightPct: number; // print area height as % of image height
+export type PrintType = "flat" | "cylindrical" | "shaped";
+export type PrintShape = "rectangle" | "square" | "circle" | "heart" | "custom-mask";
+export type PrintUnit = "in" | "cm";
+
+export type PercentBox = {
+  xPct: number;
+  yPct: number;
+  widthPct: number;
+  heightPct: number;
+};
+
+export type MockupView = {
+  id: string;
+  name: string;
+  mockupUrl: string;
+  printArea: PercentBox;
+  source: PercentBox;
+  rotation?: number;
+  transform?: {
+    scaleX?: number;
+    scaleY?: number;
+    borderRadiusPct?: number;
+    perspective?: number;
   };
+};
+
+export type PrintTemplate = {
+  templateVersion: number;
+  printType: PrintType;
+  shape: PrintShape;
+  physical: {
+    width: number;
+    height: number;
+    unit: PrintUnit;
+    dpi: number;
+  };
+  safeArea: {
+    topPct: number;
+    rightPct: number;
+    bottomPct: number;
+    leftPct: number;
+  };
+  bleed?: {
+    top: number;
+    right: number;
+    bottom: number;
+    left: number;
+    unit: PrintUnit;
+  } | null;
+  maskUrl?: string | null;
+  views: MockupView[];
+
+  // Legacy fields retained so existing JSONB data can be normalized safely.
+  widthInches?: number;
+  heightInches?: number;
+  blankMockupUrl?: string;
+  printAreaOnMockup?: PercentBox;
 };
 
 export const categories = pgTable("categories", {
@@ -97,9 +142,10 @@ export const categories = pgTable("categories", {
 // Printable area + mockup definition, only meaningful when product.customizable = true
 export type CustomizationConfig = {
   mockupImage: string | null;
-  printArea: { xPct: number; yPct: number; widthPct: number; heightPct: number };
-  shape?: "rectangle" | "circle" | "square";
+  printArea: PercentBox;
+  shape?: PrintShape;
   dimensions?: { widthInches: number; heightInches: number };
+  templateOverride?: PrintTemplate | null;
   fields: {
     imageUpload: boolean;
     multipleImages: boolean;
@@ -150,6 +196,31 @@ export const carts = pgTable("carts", {
   createdAt: timestamp("created_at").notNull().defaultNow(),
 });
 
+export type SavedDesignState = {
+  version: 1;
+  fabric: Record<string, unknown>;
+  canvas: { width: number; height: number };
+  template: {
+    id: string;
+    version: number;
+    printType: PrintType;
+    shape: PrintShape;
+  };
+  selectedVariant: {
+    size: string | null;
+    productColor: string | null;
+  };
+};
+
+export type PrintOutputMetadata = {
+  width: number;
+  height: number;
+  unit: PrintUnit;
+  dpi: number;
+  widthPx: number;
+  heightPx: number;
+};
+
 export type CartItemCustomization = {
   uploadedImages: string[];
   text: string | null;
@@ -158,8 +229,18 @@ export type CartItemCustomization = {
   productColor: string | null;
   size: string | null;
   specialInstructions: string | null;
-  previewImage: string | null; // final rendered canvas snapshot
+  previewImage: string | null; // legacy alias used by existing cart/order UI
   approved: boolean;
+
+  // Customization engine v2 fields. Optional so historical orders remain valid.
+  originalUploads?: string[];
+  previewImageUrl?: string | null;
+  printReadyArtworkUrl?: string | null;
+  designState?: SavedDesignState | null;
+  templateId?: string | null;
+  templateVersion?: number | null;
+  printOutput?: PrintOutputMetadata | null;
+  qualityWarnings?: string[];
 };
 
 export const cartItems = pgTable("cart_items", {
