@@ -76,15 +76,16 @@ export default function Cylindrical3DScene({
           camera.position.set(0, Math.sin(pitch) * distance * 0.18, distance);
           camera.lookAt(0, 0, 0);
 
-          renderer = new THREE.WebGLRenderer({
+          const activeRenderer = new THREE.WebGLRenderer({
             antialias: true,
             alpha: false,
             powerPreference: "high-performance",
-          });
-          renderer.outputColorSpace = THREE.SRGBColorSpace;
-          renderer.shadowMap.enabled = true;
-          renderer.shadowMap.type = THREE.PCFSoftShadowMap;
-          host.replaceChildren(renderer.domElement);
+          }) as RendererLike;
+          renderer = activeRenderer;
+          activeRenderer.outputColorSpace = THREE.SRGBColorSpace;
+          activeRenderer.shadowMap.enabled = true;
+          activeRenderer.shadowMap.type = THREE.PCFSoftShadowMap;
+          host.replaceChildren(activeRenderer.domElement);
 
           const ambient = new THREE.HemisphereLight(0xffffff, 0xc8c4bb, 2.25);
           scene.add(ambient);
