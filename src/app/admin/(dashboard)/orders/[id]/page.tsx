@@ -1,5 +1,5 @@
 import { db } from "@/db";
-import { orders, orderItems, payments } from "@/db/schema";
+import { orders, orderItems, payments, products } from "@/db/schema";
 import { eq } from "drizzle-orm";
 import { notFound } from "next/navigation";
 import { formatINR } from "@/lib/format";
@@ -17,7 +17,22 @@ export default async function AdminOrderDetailPage({ params }: { params: Promise
   if (!order) notFound();
 
   const [items, orderPayments] = await Promise.all([
-    db.select().from(orderItems).where(eq(orderItems.orderId, id)),
+    db
+      .select({
+        id: orderItems.id,
+        orderId: orderItems.orderId,
+        productId: orderItems.productId,
+        productName: orderItems.productName,
+        productImage: orderItems.productImage,
+        quantity: orderItems.quantity,
+        unitPrice: orderItems.unitPrice,
+        lineTotal: orderItems.lineTotal,
+        customization: orderItems.customization,
+        productSlug: products.slug,
+      })
+      .from(orderItems)
+      .innerJoin(products, eq(orderItems.productId, products.id))
+      .where(eq(orderItems.orderId, id)),
     db.select().from(payments).where(eq(payments.orderId, id)),
   ]);
 
@@ -132,6 +147,45 @@ export default async function AdminOrderDetailPage({ params }: { params: Promise
                             <p className="text-sm text-navy">{item.customization.specialInstructions}</p>
                           </div>
                         )}
+
+                        {item.customization.printReadyArtworkUrl && (
+                          <div>
+                            <p className="text-[11px] font-semibold text-navy/50 uppercase tracking-wide">
+                              Print-Ready Artwork
+                            </p>
+                            <a
+                              href={item.customization.printReadyArtworkUrl}
+                              target="_blank"
+                              rel="noreferrer"
+                              className="mt-1 inline-flex items-center gap-1.5 text-xs font-semibold text-gold hover:underline"
+                            >
+                              <Download size={12} /> Open Production Artwork
+                            </a>
+                            {item.customization.printOutput && (
+                              <p className="mt-1 text-[11px] text-navy/50">
+                                {item.customization.printOutput.widthPx} × {item.customization.printOutput.heightPx}px · {item.customization.printOutput.dpi} DPI · {item.customization.printOutput.width} × {item.customization.printOutput.height} {item.customization.printOutput.unit}
+                              </p>
+                            )}
+                          </div>
+                        )}
+
+                        {item.customization.designState && (
+                          <Link
+                            href={`/products/${item.productSlug}/customize?orderItemId=${item.id}`}
+                            className="inline-flex items-center gap-1.5 rounded-lg border border-gold/40 bg-gold/10 px-3 py-2 text-xs font-semibold text-navy hover:bg-gold/15"
+                          >
+                            Reopen Editable Design
+                          </Link>
+                        )}
+
+                        {item.customization.qualityWarnings?.length ? (
+                          <div className="rounded-lg border border-amber-200 bg-amber-50 p-2 text-[11px] text-amber-900">
+                            {item.customization.qualityWarnings.map((warning) => (
+                              <p key={warning}>{warning}</p>
+                            ))}
+                          </div>
+                        ) : null}
+
                         <p className="text-xs text-teal font-semibold">
                           {item.customization.approved ? "✓ Customer approved this design" : "Not yet approved"}
                         </p>
