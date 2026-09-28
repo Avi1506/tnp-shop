@@ -86,14 +86,20 @@ export async function uploadFile(
     signed.uploadUrl &&
     signed.publicUrl
   ) {
-    await xhrUpload(
-      signed.uploadUrl,
-      file,
-      { "Content-Type": file.type },
-      onProgress
-    );
-    onProgress?.(100);
-    return signed.publicUrl;
+    try {
+      await xhrUpload(
+        signed.uploadUrl,
+        file,
+        { "Content-Type": file.type },
+        onProgress
+      );
+      onProgress?.(100);
+      return signed.publicUrl;
+    } catch {
+      // Browser-to-R2 can be blocked by a temporary CORS/network issue.
+      // The validated server upload is the deliberate fallback path.
+      return xhrMultipartUpload(file, folder, onProgress);
+    }
   }
 
   if (signedResponse.ok && signed.fallbackToLegacy) {
