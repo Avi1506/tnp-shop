@@ -1,9 +1,11 @@
 "use client";
 
 import { useEffect, useState } from "react";
-import { Plus, Pencil, Trash2, Loader2, X, Upload, Sparkles, Image as ImageIcon } from "lucide-react";
+import { Loader2, Pencil, Plus, Sparkles, Trash2, X } from "lucide-react";
 import toast from "react-hot-toast";
 import type { PrintTemplate } from "@/db/schema";
+import PrintTemplateEditor from "@/components/admin/PrintTemplateEditor";
+import { defaultViews, normalizePrintTemplate } from "@/lib/print-template";
 
 type Category = {
   id: string;
@@ -14,137 +16,147 @@ type Category = {
   printTemplate: PrintTemplate | null;
 };
 
-const PRESETS: Record<string, PrintTemplate> = {
-  mug: {
-    shape: "rectangle",
-    widthInches: 7.5,
-    heightInches: 3.5,
-    blankMockupUrl: "https://pub-58068b913fb2422c82982c94cf89d0b6.r2.dev/mockups/mug-front.jpg",
-    printAreaOnMockup: { xPct: 20, yPct: 22, widthPct: 60, heightPct: 56 },
-  },
-  tshirt: {
-    shape: "rectangle",
-    widthInches: 10,
-    heightInches: 12,
-    blankMockupUrl: "",
-    printAreaOnMockup: { xPct: 30, yPct: 25, widthPct: 40, heightPct: 50 },
-  },
-  clock: {
-    shape: "circle",
-    widthInches: 8,
-    heightInches: 8,
-    blankMockupUrl: "",
-    printAreaOnMockup: { xPct: 20, yPct: 20, widthPct: 60, heightPct: 60 },
-  },
-  cushion: {
+function preset(kind: "mug" | "bottle" | "tshirt" | "oversized" | "cushion" | "heart"): PrintTemplate {
+  const base = normalizePrintTemplate(null);
+  if (kind === "mug") {
+    return {
+      ...base,
+      templateVersion: 1,
+      printType: "cylindrical",
+      shape: "rectangle",
+      physical: { width: 7.5, height: 3.5, unit: "in", dpi: 300 },
+      views: defaultViews("cylindrical", "/images/mockups/mug-front.jpg", { xPct: 28, yPct: 28, widthPct: 44, heightPct: 52 }).map((view) => ({
+        ...view,
+        mockupUrl:
+          view.id === "left"
+            ? "/images/mockups/mug-handle-right.jpg"
+            : view.id === "right"
+            ? "/images/mockups/mug-handle-left.jpg"
+            : "/images/mockups/mug-front.jpg",
+      })),
+    };
+  }
+  if (kind === "bottle") {
+    return {
+      ...base,
+      templateVersion: 1,
+      printType: "cylindrical",
+      shape: "rectangle",
+      physical: { width: 8, height: 3.5, unit: "in", dpi: 300 },
+      safeArea: { topPct: 10, rightPct: 3, bottomPct: 10, leftPct: 3 },
+      views: defaultViews("cylindrical", "", { xPct: 30, yPct: 30, widthPct: 40, heightPct: 40 }),
+    };
+  }
+  if (kind === "tshirt" || kind === "oversized") {
+    return {
+      ...base,
+      templateVersion: 1,
+      printType: "flat",
+      shape: "rectangle",
+      physical: kind === "oversized"
+        ? { width: 11.7, height: 16.5, unit: "in", dpi: 300 }
+        : { width: 8.27, height: 11.69, unit: "in", dpi: 300 },
+      views: defaultViews("flat", "", { xPct: 30, yPct: 22, widthPct: 40, heightPct: 52 }),
+    };
+  }
+  if (kind === "heart") {
+    return {
+      ...base,
+      templateVersion: 1,
+      printType: "shaped",
+      shape: "heart",
+      physical: { width: 10, height: 10, unit: "in", dpi: 300 },
+      views: defaultViews("shaped", "", { xPct: 18, yPct: 18, widthPct: 64, heightPct: 64 }),
+    };
+  }
+  return {
+    ...base,
+    templateVersion: 1,
+    printType: "flat",
     shape: "square",
-    widthInches: 12,
-    heightInches: 12,
-    blankMockupUrl: "",
-    printAreaOnMockup: { xPct: 20, yPct: 20, widthPct: 60, heightPct: 60 },
-  },
-};
+    physical: { width: 12, height: 12, unit: "in", dpi: 300 },
+    views: defaultViews("flat", "", { xPct: 20, yPct: 20, widthPct: 60, heightPct: 60 }),
+  };
+}
 
 export default function AdminCategoriesPage() {
   const [categories, setCategories] = useState<Category[]>([]);
   const [loading, setLoading] = useState(true);
-  const [editing, setEditing] = useState<Category | null | "new">(null);
+  const [editing, setEditing] = useState<Category | "new" | null>(null);
 
   async function load() {
     setLoading(true);
-    const res = await fetch("/api/admin/categories");
-    const data = await res.json();
+    const response = await fetch("/api/admin/categories");
+    const data = await response.json();
     setCategories(data.categories ?? []);
     setLoading(false);
   }
 
   useEffect(() => {
-    load();
+    void load();
   }, []);
 
-  async function handleDelete(id: string) {
+  async function remove(id: string) {
     if (!confirm("Delete this category? This cannot be undone.")) return;
-    const res = await fetch(`/api/admin/categories/${id}`, { method: "DELETE" });
-    const data = await res.json();
-    if (!res.ok) {
-      toast.error(data.error);
-      return;
-    }
-    toast.success("Category deleted");
-    load();
+    const response = await fetch(`/api/admin/categories/${id}`, { method: "DELETE" });
+    const data = await response.json();
+    if (!response.ok) return toast.error(data.error ?? "Could not delete category.");
+    toast.success("Category deleted.");
+    void load();
   }
 
   return (
     <div>
-      <div className="flex items-center justify-between mb-8">
+      <div className="mb-8 flex items-center justify-between gap-4">
         <div>
           <h1 className="text-2xl font-semibold text-navy">Categories &amp; Print Templates</h1>
-          <p className="text-sm text-navy/60 mt-1">
-            Configure default print dimensions, shapes and blank mockups for each product type.
+          <p className="mt-1 text-sm text-navy/60">
+            Configure reusable print behaviour once, then apply it to products without code changes.
           </p>
         </div>
-        <button
-          onClick={() => setEditing("new")}
-          className="flex items-center gap-2 bg-gold text-navy-dark font-semibold text-sm px-4 py-2.5 rounded-lg hover:brightness-110"
-        >
+        <button type="button" onClick={() => setEditing("new")} className="flex items-center gap-2 rounded-lg bg-gold px-4 py-2.5 text-sm font-semibold text-navy-dark">
           <Plus size={16} /> Add Category
         </button>
       </div>
 
-      <div className="bg-white rounded-2xl border border-border overflow-hidden">
+      <div className="overflow-hidden rounded-2xl border border-border bg-white">
         <table className="w-full text-sm">
           <thead>
-            <tr className="text-left text-xs text-navy/50 uppercase tracking-wide">
+            <tr className="text-left text-xs uppercase tracking-wide text-navy/50">
               <th className="px-5 py-3">Name</th>
               <th className="px-5 py-3">Slug</th>
-              <th className="px-5 py-3">Custom Print Template</th>
-              <th className="px-5 py-3">Sort Order</th>
+              <th className="px-5 py-3">Print Template</th>
+              <th className="px-5 py-3">Sort</th>
               <th className="px-5 py-3 text-right">Actions</th>
             </tr>
           </thead>
           <tbody>
             {loading ? (
-              <tr>
-                <td colSpan={5} className="px-5 py-10 text-center text-navy/40">
-                  <Loader2 className="animate-spin inline" size={18} />
-                </td>
-              </tr>
-            ) : (
-              categories.map((c) => (
-                <tr key={c.id} className="border-t border-border hover:bg-offwhite">
-                  <td className="px-5 py-3 font-medium text-navy">{c.name}</td>
-                  <td className="px-5 py-3 text-navy/60">{c.slug}</td>
+              <tr><td colSpan={5} className="px-5 py-10 text-center"><Loader2 size={18} className="inline animate-spin text-navy/40" /></td></tr>
+            ) : categories.map((category) => {
+              const template = category.printTemplate ? normalizePrintTemplate(category.printTemplate) : null;
+              return (
+                <tr key={category.id} className="border-t border-border">
+                  <td className="px-5 py-3 font-medium text-navy">{category.name}</td>
+                  <td className="px-5 py-3 text-navy/60">{category.slug}</td>
                   <td className="px-5 py-3">
-                    {c.printTemplate ? (
-                      <span className="inline-flex items-center gap-1.5 px-2.5 py-1 rounded-full text-xs font-semibold bg-gold/10 text-navy-dark border border-gold/30">
+                    {template ? (
+                      <span className="inline-flex items-center gap-1.5 rounded-full border border-gold/30 bg-gold/10 px-2.5 py-1 text-xs font-semibold text-navy">
                         <Sparkles size={12} className="text-gold" />
-                        {c.printTemplate.widthInches}&quot; × {c.printTemplate.heightInches}&quot; ({c.printTemplate.shape})
+                        {template.printType} · {template.physical.width}×{template.physical.height} {template.physical.unit} · {template.physical.dpi} DPI
                       </span>
-                    ) : (
-                      <span className="text-xs text-navy/40">Standard</span>
-                    )}
+                    ) : <span className="text-xs text-navy/40">No template</span>}
                   </td>
-                  <td className="px-5 py-3 text-navy/60">{c.sortOrder}</td>
+                  <td className="px-5 py-3 text-navy/60">{category.sortOrder}</td>
                   <td className="px-5 py-3">
                     <div className="flex justify-end gap-3">
-                      <button onClick={() => setEditing(c)} className="text-navy/50 hover:text-gold" title="Edit">
-                        <Pencil size={15} />
-                      </button>
-                      <button onClick={() => handleDelete(c.id)} className="text-navy/50 hover:text-red" title="Delete">
-                        <Trash2 size={15} />
-                      </button>
+                      <button type="button" onClick={() => setEditing(category)} className="text-navy/50 hover:text-gold"><Pencil size={15} /></button>
+                      <button type="button" onClick={() => void remove(category.id)} className="text-navy/50 hover:text-red"><Trash2 size={15} /></button>
                     </div>
                   </td>
                 </tr>
-              ))
-            )}
-            {!loading && categories.length === 0 && (
-              <tr>
-                <td colSpan={5} className="px-5 py-10 text-center text-navy/40">
-                  No categories yet.
-                </td>
-              </tr>
-            )}
+              );
+            })}
           </tbody>
         </table>
       </div>
@@ -155,7 +167,7 @@ export default function AdminCategoriesPage() {
           onClose={() => setEditing(null)}
           onSaved={() => {
             setEditing(null);
-            load();
+            void load();
           }}
         />
       )}
@@ -175,332 +187,96 @@ function CategoryModal({
   const [name, setName] = useState(category?.name ?? "");
   const [description, setDescription] = useState(category?.description ?? "");
   const [sortOrder, setSortOrder] = useState(category?.sortOrder ?? 0);
-  const [enableTemplate, setEnableTemplate] = useState(!!category?.printTemplate);
-  const [shape, setShape] = useState<"rectangle" | "circle" | "square">(
-    category?.printTemplate?.shape ?? "rectangle"
+  const [enabled, setEnabled] = useState(Boolean(category?.printTemplate));
+  const [template, setTemplate] = useState<PrintTemplate>(
+    normalizePrintTemplate(category?.printTemplate ?? preset("mug"))
   );
-  const [widthInches, setWidthInches] = useState<number>(category?.printTemplate?.widthInches ?? 7.5);
-  const [heightInches, setHeightInches] = useState<number>(category?.printTemplate?.heightInches ?? 3.5);
-  const [blankMockupUrl, setBlankMockupUrl] = useState<string>(category?.printTemplate?.blankMockupUrl ?? "");
-  const [xPct, setXPct] = useState<number>(category?.printTemplate?.printAreaOnMockup?.xPct ?? 20);
-  const [yPct, setYPct] = useState<number>(category?.printTemplate?.printAreaOnMockup?.yPct ?? 22);
-  const [widthPct, setWidthPct] = useState<number>(category?.printTemplate?.printAreaOnMockup?.widthPct ?? 60);
-  const [heightPct, setHeightPct] = useState<number>(category?.printTemplate?.printAreaOnMockup?.heightPct ?? 56);
-  const [uploadingMockup, setUploadingMockup] = useState(false);
   const [saving, setSaving] = useState(false);
 
-  function applyPreset(key: keyof typeof PRESETS) {
-    const p = PRESETS[key];
-    setEnableTemplate(true);
-    setShape(p.shape);
-    setWidthInches(p.widthInches);
-    setHeightInches(p.heightInches);
-    setBlankMockupUrl(p.blankMockupUrl);
-    setXPct(p.printAreaOnMockup.xPct);
-    setYPct(p.printAreaOnMockup.yPct);
-    setWidthPct(p.printAreaOnMockup.widthPct);
-    setHeightPct(p.printAreaOnMockup.heightPct);
-    toast.success(`Loaded ${key.toUpperCase()} preset!`);
-  }
-
-  async function handleMockupUpload(e: React.ChangeEvent<HTMLInputElement>) {
-    const file = e.target.files?.[0];
-    if (!file) return;
-    setUploadingMockup(true);
-    try {
-      const fd = new FormData();
-      fd.append("file", file);
-      fd.append("folder", "mockups");
-      const res = await fetch("/api/upload", { method: "POST", body: fd });
-      const data = await res.json();
-      if (!res.ok || !data.url) throw new Error(data.error || "Upload failed");
-      setBlankMockupUrl(data.url);
-      toast.success("Blank mockup uploaded to cloud!");
-    } catch (err) {
-      toast.error(err instanceof Error ? err.message : "Failed to upload mockup");
-    } finally {
-      setUploadingMockup(false);
-    }
-  }
-
-  async function handleSave() {
-    if (!name.trim()) {
-      toast.error("Name is required");
-      return;
-    }
+  async function save() {
+    if (!name.trim()) return toast.error("Name is required.");
     setSaving(true);
-    const printTemplate: PrintTemplate | null = enableTemplate
-      ? {
-          shape,
-          widthInches: Number(widthInches) || 1,
-          heightInches: shape === "circle" || shape === "square" ? Number(widthInches) || 1 : Number(heightInches) || 1,
-          blankMockupUrl,
-          printAreaOnMockup: {
-            xPct: Number(xPct) || 0,
-            yPct: Number(yPct) || 0,
-            widthPct: Number(widthPct) || 100,
-            heightPct: Number(heightPct) || 100,
-          },
-        }
-      : null;
+    try {
+      const printTemplate = enabled
+        ? {
+            ...template,
+            templateVersion: category?.printTemplate
+              ? Math.max(1, normalizePrintTemplate(category.printTemplate).templateVersion) + 1
+              : Math.max(1, template.templateVersion),
+          }
+        : null;
 
-    const url = category ? `/api/admin/categories/${category.id}` : "/api/admin/categories";
-    const method = category ? "PATCH" : "POST";
-    const res = await fetch(url, {
-      method,
-      headers: { "Content-Type": "application/json" },
-      body: JSON.stringify({ name, description, sortOrder, printTemplate }),
-    });
-    const data = await res.json();
-    setSaving(false);
-    if (!res.ok) {
-      toast.error(data.error ?? "Failed to save");
-      return;
+      const response = await fetch(category ? `/api/admin/categories/${category.id}` : "/api/admin/categories", {
+        method: category ? "PATCH" : "POST",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify({ name, description, sortOrder, printTemplate }),
+      });
+      const data = await response.json();
+      if (!response.ok) throw new Error(data.error || "Could not save category.");
+      toast.success("Category saved.");
+      onSaved();
+    } catch (error) {
+      toast.error(error instanceof Error ? error.message : "Could not save category.");
+    } finally {
+      setSaving(false);
     }
-    toast.success("Category saved!");
-    onSaved();
   }
 
   return (
-    <div className="fixed inset-0 bg-navy/40 flex items-center justify-center z-50 p-4 overflow-y-auto">
-      <div className="bg-white rounded-2xl p-6 w-full max-w-xl my-8">
-        <div className="flex items-center justify-between mb-5">
-          <h2 className="font-semibold text-navy text-lg">{category ? "Edit Category" : "Add Category"}</h2>
-          <button onClick={onClose} className="text-navy/40 hover:text-navy">
-            <X size={18} />
-          </button>
+    <div className="fixed inset-0 z-50 overflow-y-auto bg-navy/40 p-4">
+      <div className="mx-auto my-6 w-full max-w-4xl rounded-2xl bg-white p-6">
+        <div className="mb-5 flex items-center justify-between">
+          <h2 className="text-lg font-semibold text-navy">{category ? "Edit Category" : "Add Category"}</h2>
+          <button type="button" onClick={onClose} className="text-navy/40 hover:text-navy"><X size={18} /></button>
         </div>
 
-        <div className="space-y-4">
-          <div>
-            <label className="text-xs font-semibold text-navy/60 uppercase tracking-wide">Category Name</label>
-            <input
-              value={name}
-              onChange={(e) => setName(e.target.value)}
-              placeholder="e.g. Mugs, Bottles & Drinkware"
-              className="w-full mt-1.5 text-sm border border-border rounded-lg px-3 py-2.5 outline-none focus:border-gold"
-            />
-          </div>
-
-          <div>
-            <label className="text-xs font-semibold text-navy/60 uppercase tracking-wide">Description</label>
-            <textarea
-              value={description ?? ""}
-              onChange={(e) => setDescription(e.target.value)}
-              rows={2}
-              placeholder="Brief description for customer catalog"
-              className="w-full mt-1.5 text-sm border border-border rounded-lg px-3 py-2.5 outline-none focus:border-gold resize-none"
-            />
-          </div>
-
-          <div className="grid grid-cols-2 gap-4">
-            <div>
-              <label className="text-xs font-semibold text-navy/60 uppercase tracking-wide">Sort Order</label>
-              <input
-                type="number"
-                value={sortOrder}
-                onChange={(e) => setSortOrder(parseInt(e.target.value) || 0)}
-                className="w-full mt-1.5 text-sm border border-border rounded-lg px-3 py-2.5 outline-none focus:border-gold"
-              />
-            </div>
-          </div>
-
-          {/* PRINT TEMPLATE SECTION */}
-          <div className="pt-4 border-t border-border">
-            <div className="flex items-center justify-between mb-3">
-              <div>
-                <h3 className="text-sm font-semibold text-navy flex items-center gap-1.5">
-                  <Sparkles size={15} className="text-gold" /> Customizable Print Template
-                </h3>
-                <p className="text-xs text-navy/50">
-                  Sets default physical dimensions and blank mockup for customizer.
-                </p>
-              </div>
-              <input
-                type="checkbox"
-                checked={enableTemplate}
-                onChange={(e) => setEnableTemplate(e.target.checked)}
-                className="h-4 w-4 accent-gold cursor-pointer"
-              />
-            </div>
-
-            {enableTemplate && (
-              <div className="space-y-4 bg-offwhite p-4 rounded-xl border border-border mt-3">
-                {/* Presets */}
-                <div>
-                  <label className="text-[11px] font-semibold text-navy/60 uppercase tracking-wide block mb-1.5">
-                    Quick Presets:
-                  </label>
-                  <div className="flex flex-wrap gap-2">
-                    <button
-                      type="button"
-                      onClick={() => applyPreset("mug")}
-                      className="text-xs px-2.5 py-1 rounded-md bg-white border border-border text-navy hover:border-gold hover:text-gold font-medium"
-                    >
-                      ☕ Mug (7.5&quot; × 3.5&quot;)
-                    </button>
-                    <button
-                      type="button"
-                      onClick={() => applyPreset("tshirt")}
-                      className="text-xs px-2.5 py-1 rounded-md bg-white border border-border text-navy hover:border-gold hover:text-gold font-medium"
-                    >
-                      👕 T-Shirt (10&quot; × 12&quot;)
-                    </button>
-                    <button
-                      type="button"
-                      onClick={() => applyPreset("clock")}
-                      className="text-xs px-2.5 py-1 rounded-md bg-white border border-border text-navy hover:border-gold hover:text-gold font-medium"
-                    >
-                      ⏰ Clock / Circle (8&quot; × 8&quot;)
-                    </button>
-                    <button
-                      type="button"
-                      onClick={() => applyPreset("cushion")}
-                      className="text-xs px-2.5 py-1 rounded-md bg-white border border-border text-navy hover:border-gold hover:text-gold font-medium"
-                    >
-                      🛋️ Cushion / Square (12&quot; × 12&quot;)
-                    </button>
-                  </div>
-                </div>
-
-                {/* Shape & Dimensions */}
-                <div className="grid grid-cols-3 gap-3">
-                  <div>
-                    <label className="text-[11px] font-semibold text-navy/60 uppercase tracking-wide block mb-1">
-                      Shape
-                    </label>
-                    <select
-                      value={shape}
-                      onChange={(e) => setShape(e.target.value as "rectangle" | "circle" | "square")}
-                      className="w-full text-sm border border-border rounded-lg px-2.5 py-2 outline-none focus:border-gold bg-white"
-                    >
-                      <option value="rectangle">Rectangle</option>
-                      <option value="circle">Circle / Round</option>
-                      <option value="square">Square</option>
-                    </select>
-                  </div>
-
-                  <div>
-                    <label className="text-[11px] font-semibold text-navy/60 uppercase tracking-wide block mb-1">
-                      Width (inches)
-                    </label>
-                    <input
-                      type="number"
-                      step="0.1"
-                      value={widthInches}
-                      onChange={(e) => setWidthInches(parseFloat(e.target.value) || 0)}
-                      className="w-full text-sm border border-border rounded-lg px-2.5 py-2 outline-none focus:border-gold bg-white"
-                    />
-                  </div>
-
-                  <div>
-                    <label className="text-[11px] font-semibold text-navy/60 uppercase tracking-wide block mb-1">
-                      Height (inches)
-                    </label>
-                    <input
-                      type="number"
-                      step="0.1"
-                      disabled={shape === "circle" || shape === "square"}
-                      value={shape === "circle" || shape === "square" ? widthInches : heightInches}
-                      onChange={(e) => setHeightInches(parseFloat(e.target.value) || 0)}
-                      className="w-full text-sm border border-border rounded-lg px-2.5 py-2 outline-none focus:border-gold bg-white disabled:opacity-50"
-                    />
-                  </div>
-                </div>
-
-                {/* Blank Mockup Image */}
-                <div>
-                  <label className="text-[11px] font-semibold text-navy/60 uppercase tracking-wide block mb-1">
-                    Blank Product Photo (Mockup)
-                  </label>
-                  <div className="flex items-center gap-3">
-                    <input
-                      type="text"
-                      value={blankMockupUrl}
-                      onChange={(e) => setBlankMockupUrl(e.target.value)}
-                      placeholder="https://... or upload photo"
-                      className="flex-1 text-xs border border-border rounded-lg px-3 py-2 outline-none focus:border-gold bg-white"
-                    />
-                    <label className="cursor-pointer bg-white border border-border hover:border-gold px-3 py-2 rounded-lg text-xs font-semibold text-navy flex items-center gap-1.5 shrink-0">
-                      {uploadingMockup ? (
-                        <Loader2 size={13} className="animate-spin" />
-                      ) : (
-                        <Upload size={13} className="text-gold" />
-                      )}
-                      <span>Upload Mockup</span>
-                      <input
-                        type="file"
-                        accept="image/*"
-                        onChange={handleMockupUpload}
-                        disabled={uploadingMockup}
-                        className="hidden"
-                      />
-                    </label>
-                  </div>
-                  {blankMockupUrl && (
-                    <div className="mt-2 flex items-center gap-2 text-xs text-navy/60">
-                      <ImageIcon size={14} className="text-gold" />
-                      <span className="truncate max-w-sm">{blankMockupUrl}</span>
-                    </div>
-                  )}
-                </div>
-
-                {/* Print Area Percentage Coordinates */}
-                <div>
-                  <label className="text-[11px] font-semibold text-navy/60 uppercase tracking-wide block mb-1">
-                    Print Area on Mockup (% Coordinates)
-                  </label>
-                  <div className="grid grid-cols-4 gap-2">
-                    <div>
-                      <span className="text-[10px] text-navy/50 block">Left X%</span>
-                      <input
-                        type="number"
-                        value={xPct}
-                        onChange={(e) => setXPct(parseFloat(e.target.value) || 0)}
-                        className="w-full text-xs border border-border rounded px-2 py-1.5 bg-white"
-                      />
-                    </div>
-                    <div>
-                      <span className="text-[10px] text-navy/50 block">Top Y%</span>
-                      <input
-                        type="number"
-                        value={yPct}
-                        onChange={(e) => setYPct(parseFloat(e.target.value) || 0)}
-                        className="w-full text-xs border border-border rounded px-2 py-1.5 bg-white"
-                      />
-                    </div>
-                    <div>
-                      <span className="text-[10px] text-navy/50 block">Width%</span>
-                      <input
-                        type="number"
-                        value={widthPct}
-                        onChange={(e) => setWidthPct(parseFloat(e.target.value) || 0)}
-                        className="w-full text-xs border border-border rounded px-2 py-1.5 bg-white"
-                      />
-                    </div>
-                    <div>
-                      <span className="text-[10px] text-navy/50 block">Height%</span>
-                      <input
-                        type="number"
-                        value={heightPct}
-                        onChange={(e) => setHeightPct(parseFloat(e.target.value) || 0)}
-                        className="w-full text-xs border border-border rounded px-2 py-1.5 bg-white"
-                      />
-                    </div>
-                  </div>
-                </div>
-              </div>
-            )}
-          </div>
+        <div className="grid gap-4 sm:grid-cols-2">
+          <label className="text-xs font-semibold uppercase tracking-wide text-navy/60">
+            Category Name
+            <input value={name} onChange={(event) => setName(event.target.value)} className="mt-1.5 w-full rounded-lg border border-border px-3 py-2.5 text-sm normal-case text-navy outline-none focus:border-gold" />
+          </label>
+          <label className="text-xs font-semibold uppercase tracking-wide text-navy/60">
+            Sort Order
+            <input type="number" value={sortOrder} onChange={(event) => setSortOrder(Number(event.target.value) || 0)} className="mt-1.5 w-full rounded-lg border border-border px-3 py-2.5 text-sm normal-case text-navy outline-none focus:border-gold" />
+          </label>
+          <label className="sm:col-span-2 text-xs font-semibold uppercase tracking-wide text-navy/60">
+            Description
+            <textarea value={description ?? ""} onChange={(event) => setDescription(event.target.value)} rows={2} className="mt-1.5 w-full resize-none rounded-lg border border-border px-3 py-2.5 text-sm normal-case text-navy outline-none focus:border-gold" />
+          </label>
         </div>
 
-        <button
-          onClick={handleSave}
-          disabled={saving || uploadingMockup}
-          className="w-full mt-6 bg-navy text-white font-semibold py-2.5 rounded-lg hover:bg-navy-dark transition flex items-center justify-center gap-2 disabled:opacity-60"
-        >
-          {saving && <Loader2 size={15} className="animate-spin" />}
-          Save Category
+        <div className="mt-5 border-t border-border pt-5">
+          <label className="mb-3 flex items-center justify-between gap-3 text-sm font-semibold text-navy">
+            <span>
+              Enable reusable print template
+              <span className="block text-xs font-normal text-navy/50">Products can inherit this template and optionally override it.</span>
+            </span>
+            <input type="checkbox" checked={enabled} onChange={(event) => setEnabled(event.target.checked)} className="h-4 w-4 accent-gold" />
+          </label>
+
+          {enabled && (
+            <>
+              <div className="mb-3 flex flex-wrap gap-2">
+                {([
+                  ["mug", "Mug"],
+                  ["bottle", "Bottle"],
+                  ["tshirt", "T-Shirt A4"],
+                  ["oversized", "Oversized A3"],
+                  ["cushion", "Square Cushion"],
+                  ["heart", "Heart Cushion"],
+                ] as const).map(([key, label]) => (
+                  <button key={key} type="button" onClick={() => setTemplate(preset(key))} className="rounded-lg border border-border bg-white px-3 py-1.5 text-xs font-semibold text-navy hover:border-gold">
+                    {label}
+                  </button>
+                ))}
+              </div>
+              <PrintTemplateEditor value={template} onChange={setTemplate} />
+            </>
+          )}
+        </div>
+
+        <button type="button" onClick={() => void save()} disabled={saving} className="mt-6 flex w-full items-center justify-center gap-2 rounded-lg bg-navy py-3 font-semibold text-white disabled:opacity-60">
+          {saving && <Loader2 size={15} className="animate-spin" />} Save Category
         </button>
       </div>
     </div>
