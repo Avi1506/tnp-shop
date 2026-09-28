@@ -34,6 +34,14 @@ const ALLOWED_TYPES = new Set([
 ]);
 
 const MAX_BYTES = 10 * 1024 * 1024; // 10 MB
+const ALLOWED_FOLDERS = new Set([
+  "customizations",
+  "previews",
+  "print-ready",
+  "mockups",
+  "products",
+  "bulk-enquiries",
+]);
 
 function getR2Client() {
   const endpoint = process.env.STORAGE_ENDPOINT;
@@ -60,6 +68,10 @@ export async function POST(req: NextRequest) {
     };
 
     const { contentType = "image/jpeg", contentLength, folder = "customizations" } = body;
+
+    if (!ALLOWED_FOLDERS.has(folder)) {
+      return NextResponse.json({ error: "Upload folder is not allowed." }, { status: 400 });
+    }
 
     if (!ALLOWED_TYPES.has(contentType)) {
       return NextResponse.json(
@@ -89,8 +101,7 @@ export async function POST(req: NextRequest) {
     }
 
     const ext = contentType.split("/")[1].replace("jpeg", "jpg");
-    const safeFolder = folder.replace(/[^a-z0-9-_]/gi, "").slice(0, 40) || "customizations";
-    const key = `${safeFolder}/${uuid()}.${ext}`;
+    const key = `${folder}/${uuid()}.${ext}`;
 
     // Generate a signed URL valid for 5 minutes
     const command = new PutObjectCommand({
