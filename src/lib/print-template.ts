@@ -80,6 +80,7 @@ export function normalizePrintTemplate(
     bleed: source?.bleed ?? null,
     maskUrl: source?.maskUrl ?? null,
     views: source?.views?.length ? source.views : [fallbackView],
+    cylindrical3d: source?.cylindrical3d ?? null,
     widthInches: source?.widthInches,
     heightInches: source?.heightInches,
     blankMockupUrl: source?.blankMockupUrl,
@@ -142,6 +143,7 @@ export function defaultViews(printType: PrintType, mockupUrl = "", area?: Percen
       perspectiveStrength: 0,
       edgeFalloff: 0.34,
       blendMode: "multiply",
+      angleDeg: 0,
     },
     {
       id: "left",
@@ -153,6 +155,7 @@ export function defaultViews(printType: PrintType, mockupUrl = "", area?: Percen
       perspectiveStrength: -0.12,
       edgeFalloff: 0.38,
       blendMode: "multiply",
+      angleDeg: -65,
     },
     {
       id: "right",
@@ -164,6 +167,7 @@ export function defaultViews(printType: PrintType, mockupUrl = "", area?: Percen
       perspectiveStrength: 0.12,
       edgeFalloff: 0.38,
       blendMode: "multiply",
+      angleDeg: 65,
     },
   ];
 }
