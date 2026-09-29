@@ -238,15 +238,16 @@ export default function Cylindrical3DScene({
             const handleSign = config.handleSide === "left" ? -1 : 1;
             const handle = new THREE.Mesh(
               new THREE.TorusGeometry(
-                radius * 0.56,
-                radius * 0.115,
+                radius * 0.52,
+                radius * 0.12,
                 20,
                 80
               ),
               baseMaterial
             );
+            handle.rotation.y = Math.PI / 2;
             handle.scale.y = 1.28;
-            handle.position.set(handleSign * radius * 1.28, 0, 0);
+            handle.position.set(handleSign * radius * 1.12, 0, 0);
             handle.castShadow = true;
             product.add(handle);
           }
