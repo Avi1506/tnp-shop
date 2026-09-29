@@ -116,7 +116,7 @@ export default function Cylindrical3DScene({
           });
 
           const printableRadius = radius;
-          let printableBodyHeight = bodyHeight;
+          let printableBodyHeight = bodyHeight * 0.76;
           let printableCenterY = 0;
 
           if (config.modelRef === "procedural:bottle-v1") {
