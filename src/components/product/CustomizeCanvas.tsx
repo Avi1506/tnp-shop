@@ -25,6 +25,7 @@ import type {
 } from "@/db/schema";
 import { outputPixels, resolveProductTemplate, sourceStyle } from "@/lib/print-template";
 import Cylindrical3DPreview from "@/components/product/Cylindrical3DPreview";
+import CylindricalSurfacePreview from "@/components/product/CylindricalSurfacePreview";
 import { uploadFile } from "@/lib/client-upload";
 import { useCart } from "@/components/cart/CartContext";
 
@@ -744,6 +745,24 @@ export default function CustomizeCanvas({
                     <Image src={view.mockupUrl} alt={view.name} fill className="object-contain" />
                   ) : (
                     <div className="flex h-full items-center justify-center text-[10px] text-navy/40">{view.name}</div>
+                  )}
+                  {template.printType === "cylindrical" && artworkSnapshot && (
+                    <div
+                      className="absolute overflow-hidden"
+                      style={{
+                        left: `${view.printArea.xPct}%`,
+                        top: `${view.printArea.yPct}%`,
+                        width: `${view.printArea.widthPct}%`,
+                        height: `${view.printArea.heightPct}%`,
+                        transform: `rotate(${view.rotation ?? 0}deg)`,
+                        transformOrigin: "center",
+                      }}
+                    >
+                      <CylindricalSurfacePreview
+                        artworkUrl={artworkSnapshot}
+                        view={view}
+                      />
+                    </div>
                   )}
                 </div>
                 <span className="mt-1 block text-[10px] font-semibold text-navy">{view.name}</span>
