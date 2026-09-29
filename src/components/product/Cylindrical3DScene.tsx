@@ -294,7 +294,9 @@ export default function Cylindrical3DScene({
               const thetaOffset = THREE.MathUtils.degToRad(
                 config.wrapOffsetDeg ?? 0
               );
-              // Three.js CylinderGeometry starts at +Z and advances toward +X.\n              // Center the printable arc on the camera-facing +Z side.\n              const thetaStart = -thetaLength / 2 + thetaOffset;
+              // Three.js CylinderGeometry starts at +Z and advances toward +X.
+              // Center the printable arc on the camera-facing +Z side.
+              const thetaStart = -thetaLength / 2 + thetaOffset;
 
               const printSurface = new THREE.Mesh(
                 new THREE.CylinderGeometry(
