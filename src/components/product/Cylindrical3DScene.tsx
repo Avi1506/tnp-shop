@@ -71,9 +71,8 @@ export default function Cylindrical3DScene({
           scene.background = new THREE.Color(0xf5f5f2);
 
           const camera = new THREE.PerspectiveCamera(30, 1, 0.1, 100);
-          const distance = Math.max(5.8, config.cameraDistance ?? 7.2);
           const pitch = THREE.MathUtils.degToRad(config.cameraPitchDeg ?? 5);
-          camera.position.set(0, Math.sin(pitch) * distance * 0.18, distance);
+          camera.position.set(0, 0, Math.max(5.8, config.cameraDistance ?? 7.2));
           camera.lookAt(0, 0, 0);
 
           const activeRenderer = new THREE.WebGLRenderer({
@@ -85,6 +84,9 @@ export default function Cylindrical3DScene({
           activeRenderer.outputColorSpace = THREE.SRGBColorSpace;
           activeRenderer.shadowMap.enabled = true;
           activeRenderer.shadowMap.type = THREE.PCFSoftShadowMap;
+          activeRenderer.domElement.style.display = "block";
+          activeRenderer.domElement.style.width = "100%";
+          activeRenderer.domElement.style.height = "100%";
           host.replaceChildren(activeRenderer.domElement);
 
           const ambient = new THREE.HemisphereLight(0xffffff, 0xc8c4bb, 2.25);
@@ -359,10 +361,41 @@ export default function Cylindrical3DScene({
             if (disposed || !renderer) return;
             const rect = host.getBoundingClientRect();
             if (rect.width < 2 || rect.height < 2) return;
+
             const dpr = Math.min(window.devicePixelRatio || 1, 1.5);
             renderer.setPixelRatio(dpr);
             renderer.setSize(rect.width, rect.height, false);
+
             camera.aspect = rect.width / rect.height;
+
+            // Fit the complete rotated product (including handle) into the
+            // current viewport. This prevents high-DPR mobile canvases from
+            // showing only a cropped/zoomed portion of the mug.
+            const bounds = new THREE.Box3().setFromObject(product);
+            const size = bounds.getSize(new THREE.Vector3());
+            const center = bounds.getCenter(new THREE.Vector3());
+            const verticalFov = THREE.MathUtils.degToRad(camera.fov);
+            const horizontalFov =
+              2 * Math.atan(Math.tan(verticalFov / 2) * camera.aspect);
+            const distanceForHeight =
+              size.y / Math.max(0.01, 2 * Math.tan(verticalFov / 2));
+            const distanceForWidth =
+              size.x / Math.max(0.01, 2 * Math.tan(horizontalFov / 2));
+            const depthAllowance = size.z * 0.55;
+            const fittedDistance =
+              (Math.max(distanceForHeight, distanceForWidth) + depthAllowance) * 1.18;
+            const distance = Math.max(
+              config.cameraDistance ?? 0,
+              fittedDistance,
+              4.5
+            );
+
+            camera.position.set(
+              center.x,
+              center.y + Math.sin(pitch) * distance * 0.16,
+              center.z + Math.cos(pitch) * distance
+            );
+            camera.lookAt(center.x, center.y, center.z);
             camera.updateProjectionMatrix();
             renderer.render(scene, camera);
           };
