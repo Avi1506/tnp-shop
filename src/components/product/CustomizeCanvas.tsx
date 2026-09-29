@@ -740,7 +740,17 @@ export default function CustomizeCanvas({
             {template.views.map((view) => (
               <button key={view.id} type="button" onClick={() => setSelectedViewId(view.id)} className={`shrink-0 rounded-xl border p-1.5 ${selectedView?.id === view.id ? "border-navy ring-2 ring-navy/10" : "border-border"}`}>
                 <div className="relative h-20 w-20 overflow-hidden rounded-lg bg-offwhite">
-                  {view.mockupUrl ? <Image src={view.mockupUrl} alt={view.name} fill className="object-contain" /> : <div className="flex h-full items-center justify-center text-[10px] text-navy/40">No mockup</div>}
+                  {template.printType === "cylindrical" && artworkSnapshot ? (
+                    <Cylindrical3DPreview
+                      artworkUrl={artworkSnapshot}
+                      template={template}
+                      view={view}
+                    />
+                  ) : view.mockupUrl ? (
+                    <Image src={view.mockupUrl} alt={view.name} fill className="object-contain" />
+                  ) : (
+                    <div className="flex h-full items-center justify-center text-[10px] text-navy/40">No mockup</div>
+                  )}
                 </div>
                 <span className="mt-1 block text-[10px] font-semibold text-navy">{view.name}</span>
               </button>
