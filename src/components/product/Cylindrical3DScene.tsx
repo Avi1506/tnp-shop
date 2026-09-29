@@ -70,8 +70,8 @@ export default function Cylindrical3DScene({
           const scene = new THREE.Scene();
           scene.background = new THREE.Color(0xf5f5f2);
 
-          const camera = new THREE.PerspectiveCamera(34, 1, 0.1, 100);
-          const distance = Math.max(4.5, config.cameraDistance ?? 6.2);
+          const camera = new THREE.PerspectiveCamera(30, 1, 0.1, 100);
+          const distance = Math.max(5.8, config.cameraDistance ?? 7.2);
           const pitch = THREE.MathUtils.degToRad(config.cameraPitchDeg ?? 5);
           camera.position.set(0, Math.sin(pitch) * distance * 0.18, distance);
           camera.lookAt(0, 0, 0);
@@ -293,7 +293,7 @@ export default function Cylindrical3DScene({
               const thetaOffset = THREE.MathUtils.degToRad(
                 config.wrapOffsetDeg ?? 0
               );
-              const thetaStart = -thetaLength / 2 + thetaOffset;
+              // Three.js CylinderGeometry starts at +Z and advances toward +X.\n              // Center the printable arc on the camera-facing +Z side.\n              const thetaStart = -thetaLength / 2 + thetaOffset;
 
               const printSurface = new THREE.Mesh(
                 new THREE.CylinderGeometry(
