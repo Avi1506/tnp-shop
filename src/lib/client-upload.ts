@@ -32,37 +32,6 @@ function xhrUpload(
   });
 }
 
-function xhrMultipartUpload(
-  file: File,
-  folder: UploadFolder,
-  onProgress?: (percent: number) => void
-): Promise<string> {
-  return new Promise((resolve, reject) => {
-    const form = new FormData();
-    form.append("file", file);
-    form.append("folder", folder);
-
-    const xhr = new XMLHttpRequest();
-    xhr.open("POST", "/api/upload");
-    xhr.upload.onprogress = (event) => {
-      if (!event.lengthComputable || !onProgress) return;
-      onProgress(Math.round((event.loaded / event.total) * 100));
-    };
-    xhr.onload = () => {
-      let data: { url?: string; error?: string } = {};
-      try {
-        data = JSON.parse(xhr.responseText);
-      } catch {
-        // handled below
-      }
-      if (xhr.status >= 200 && xhr.status < 300 && data.url) resolve(data.url);
-      else reject(new Error(data.error || "Upload failed."));
-    };
-    xhr.onerror = () => reject(new Error("Upload failed."));
-    xhr.send(form);
-  });
-}
-
 export async function uploadFile(
   file: File,
   folder: UploadFolder,
@@ -96,15 +65,13 @@ export async function uploadFile(
       onProgress?.(100);
       return signed.publicUrl;
     } catch {
-      // Browser-to-R2 can be blocked by a temporary CORS/network issue.
-      // The validated server upload is the deliberate fallback path.
-      return xhrMultipartUpload(file, folder, onProgress);
+      throw new Error("Could not upload image. Please retry.");
     }
   }
 
   if (signedResponse.ok && signed.fallbackToLegacy) {
-    return xhrMultipartUpload(file, folder, onProgress);
+    throw new Error("Image storage is temporarily unavailable. Please retry.");
   }
 
-  throw new Error(signed.error || "Could not prepare upload.");
+  throw new Error(signed.error || "Could not prepare upload. Please retry.");
 }
