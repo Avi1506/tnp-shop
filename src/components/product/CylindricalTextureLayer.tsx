@@ -89,35 +89,21 @@ export default function CylindricalTextureLayer({
           activeRenderer.domElement.style.pointerEvents = "none";
           host.replaceChildren(activeRenderer.domElement);
 
-          scene.add(new THREE.HemisphereLight(0xffffff, 0x888888, 1.7));
-
-          const key = new THREE.DirectionalLight(0xffffff, 1.45);
-          key.position.set(-3, 4, 5);
-          scene.add(key);
-
-          const fill = new THREE.DirectionalLight(0xffffff, 0.45);
-          fill.position.set(4, 1, 3);
-          scene.add(fill);
-
-          const coverageDeg = Math.min(
-            355,
-            Math.max(180, config.wrapCoverageDeg || 270)
-          );
-          const thetaLength = THREE.MathUtils.degToRad(coverageDeg);
+          // Full 360° UV cylinder. The texture seam sits on the rear (-Z),
+          // so the center of the flat wrap (u=0.5) faces the customer (+Z).
+          // Front / Left / Right rotate this same wrapped texture.
           const thetaOffset = THREE.MathUtils.degToRad(
             config.wrapOffsetDeg ?? 0
           );
-          const thetaStart = -thetaLength / 2 + thetaOffset;
-
           const geometry = new THREE.CylinderGeometry(
             1,
             1,
             2.45,
-            192,
+            256,
             1,
             true,
-            thetaStart,
-            thetaLength
+            -Math.PI + thetaOffset,
+            Math.PI * 2
           );
 
           const textureLoader = new THREE.TextureLoader();
@@ -140,23 +126,20 @@ export default function CylindricalTextureLayer({
                 activeRenderer.capabilities.getMaxAnisotropy()
               );
 
-              const material = new THREE.MeshLambertMaterial({
+              // Preserve the supplied artwork colours. Ceramic lighting comes
+              // from the unchanged real mug photograph underneath this layer.
+              const material = new THREE.MeshBasicMaterial({
                 map: texture,
                 transparent: true,
-                opacity: 0.98,
+                opacity: 1,
                 side: THREE.FrontSide,
                 depthWrite: false,
               });
 
               const cylinder = new THREE.Mesh(geometry, material);
-              cylinder.rotation.y = THREE.MathUtils.degToRad(
-                view.angleDeg ??
-                  (view.id === "left"
-                    ? -62
-                    : view.id === "right"
-                      ? 62
-                      : 0)
-              );
+              const viewAngle =
+                view.id === "left" ? -90 : view.id === "right" ? 90 : 0;
+              cylinder.rotation.y = THREE.MathUtils.degToRad(viewAngle);
               scene.add(cylinder);
 
               const render = () => {
