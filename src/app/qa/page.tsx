@@ -928,36 +928,54 @@ export default function QATrainerPage() {
 
       <div className="mx-auto grid max-w-6xl gap-6 px-4 py-7 sm:px-6 lg:grid-cols-[1fr_320px]">
         <section className="lg:order-first">
-          <div className="sticky top-0 z-20 -mx-2 mb-5 space-y-3 bg-slate-950/95 px-2 py-3 backdrop-blur-xl">
-            <select
-              value={selectedCategory}
-              onChange={(event) => {
-                setSelectedCategory(event.target.value);
-                setOpenId(null);
-              }}
-              aria-label="Choose interview category"
-              className="w-full rounded-2xl border border-white/10 bg-slate-900 px-4 py-3.5 text-sm font-bold text-white outline-none focus:border-cyan-300/40"
-            >
-              {categories.map((category) => (
-                <option key={category} value={category}>
-                  {category}
-                </option>
-              ))}
-            </select>
-            <div className="relative">
-              <Search className="absolute left-4 top-1/2 -translate-y-1/2 text-white/35" size={18} />
-              <input
-                value={search}
-                onChange={(event) => setSearch(event.target.value)}
-                placeholder="Search a question…"
-                className="w-full rounded-2xl border border-white/10 bg-white/[0.06] py-3.5 pl-11 pr-4 text-sm outline-none transition placeholder:text-white/30 focus:border-cyan-300/40"
-              />
+          <div className="sticky top-0 z-30 mb-5 space-y-3 border-b border-white/5 bg-slate-950/95 py-3 backdrop-blur-xl">
+            <div className="w-full">
+              <label className="mb-1.5 block px-1 text-[10px] font-black uppercase tracking-[0.16em] text-white/35">
+                Category
+              </label>
+              <div className="relative w-full overflow-hidden rounded-2xl border border-white/10 bg-slate-900 focus-within:border-cyan-300/40">
+                <select
+                  value={selectedCategory}
+                  onChange={(event) => {
+                    setSelectedCategory(event.target.value);
+                    setOpenId(null);
+                  }}
+                  aria-label="Choose interview category"
+                  className="h-12 w-full min-w-0 appearance-none bg-transparent pl-4 pr-12 text-sm font-bold text-white outline-none"
+                >
+                  {categories.map((category) => (
+                    <option key={category} value={category}>
+                      {category}
+                    </option>
+                  ))}
+                </select>
+                <ChevronDown
+                  size={18}
+                  aria-hidden="true"
+                  className="pointer-events-none absolute right-4 top-1/2 -translate-y-1/2 text-white/45"
+                />
+              </div>
+            </div>
+
+            <div className="w-full">
+              <label className="mb-1.5 block px-1 text-[10px] font-black uppercase tracking-[0.16em] text-white/35">
+                Search
+              </label>
+              <div className="relative w-full">
+                <Search className="absolute left-4 top-1/2 -translate-y-1/2 text-white/35" size={18} />
+                <input
+                  value={search}
+                  onChange={(event) => setSearch(event.target.value)}
+                  placeholder="Search a question…"
+                  className="h-12 w-full min-w-0 rounded-2xl border border-white/10 bg-white/[0.06] pl-11 pr-4 text-sm outline-none transition placeholder:text-white/30 focus:border-cyan-300/40"
+                />
+              </div>
             </div>
           </div>
 
-          <div className="mb-3 flex items-center justify-between text-xs text-white/40">
-            <span>{filteredTopics.length} questions</span>
-            <span>Tap a question to study</span>
+          <div className="mb-3 flex min-w-0 items-center justify-between gap-3 px-1 text-xs text-white/40">
+            <span className="shrink-0">{filteredTopics.length} questions</span>
+            <span className="min-w-0 truncate text-right">Tap a question to study</span>
           </div>
 
           <div className="space-y-3">
