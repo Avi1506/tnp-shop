@@ -1,0 +1,314 @@
+Yes. For your **Automation Testing interview preparation**, these are the main questions you should prepare. I’ve included **Manual Testing + Java + Selenium + Framework + API + SQL + real-time scenario questions**.
+
+### Manual Testing
+1. What is software testing?
+2. What is manual testing?
+3. What is SDLC?
+4. What is STLC?
+5. What is static testing and dynamic testing?
+6. What is verification and validation?
+7. What is a test scenario?
+8. What is a test case?
+9. Difference between test scenario and test case?
+10. What is a test plan?
+11. What is a test strategy?
+12. What is defect/bug?
+13. What is bug life cycle?
+14. What is severity?
+15. What is priority?
+16. Difference between severity and priority?
+17. What is smoke testing?
+18. What is sanity testing?
+19. Smoke vs sanity testing?
+20. What is regression testing?
+21. What is retesting?
+22. Retesting vs regression testing?
+23. What is functional testing?
+24. What is non-functional testing?
+25. What is integration testing?
+26. What is system testing?
+27. What is acceptance testing?
+28. What is UAT?
+29. What is exploratory testing?
+30. What is ad-hoc testing?
+31. What is positive testing?
+32. What is negative testing?
+33. What is boundary value analysis?
+34. What is equivalence partitioning?
+35. What is defect leakage?
+36. What is defect rejection?
+37. What is defect clustering?
+38. What is RTM?
+39. What is entry criteria and exit criteria?
+40. When do you stop testing?
+
+### Core Java
+41. What is Java?
+42. What are the features of Java?
+43. What is JVM, JRE and JDK?
+44. What is a class?
+45. What is an object?
+46. What is constructor?
+47. What are different types of constructors?
+48. What is OOP?
+49. What is encapsulation?
+50. What is inheritance?
+51. What is polymorphism?
+52. What is abstraction?
+53. Method overloading vs method overriding?
+54. What is an interface?
+55. Abstract class vs interface?
+56. What is `this` keyword?
+57. What is `super` keyword?
+58. What is `static` keyword?
+59. What is `final` keyword?
+60. Difference between `final`, `finally`, and `finalize`?
+61. What is String?
+62. String vs StringBuilder vs StringBuffer?
+63. Why is String immutable?
+64. Difference between `==` and `.equals()`?
+65. What is an array?
+66. Array vs ArrayList?
+67. What is Collection Framework?
+68. Difference between List, Set and Map?
+69. ArrayList vs LinkedList?
+70. HashSet vs TreeSet?
+71. What is HashMap?
+72. Why do we use HashMap?
+73. HashMap vs Hashtable?
+74. HashMap vs LinkedHashMap?
+75. How do you iterate through a HashMap?
+76. What are exceptions?
+77. How many types of exceptions are there?
+78. Checked vs unchecked exception?
+79. How do you handle exceptions?
+80. What is try-catch?
+81. What is finally?
+82. `throw` vs `throws`?
+83. Can we have multiple catch blocks?
+84. What is NullPointerException?
+85. What is ArrayIndexOutOfBoundsException?
+
+### Common Java Coding Questions
+86. Reverse a string.
+87. Check whether a string is palindrome.
+88. Reverse each word in a string.
+89. Find duplicate characters in a string.
+90. Count occurrence of each character.
+91. Count vowels and consonants.
+92. Remove duplicate characters.
+93. Find first non-repeated character.
+94. Swap two numbers.
+95. Swap two numbers without third variable.
+96. Find largest number in an array.
+97. Find smallest number in an array.
+98. Find second-largest number.
+99. Sort an array.
+100. Remove duplicates from an array.
+101. Find duplicate numbers in an array.
+102. Find missing number in an array.
+103. Check whether a number is palindrome.
+104. Check prime number.
+105. Print Fibonacci series.
+106. Find factorial.
+107. Reverse a number.
+108. Count digits in a number.
+109. Create a Map where key is number and value is square.
+110. Count frequency of words using HashMap.
+
+### Selenium
+111. What is Selenium?
+112. What are Selenium components?
+113. What is Selenium WebDriver?
+114. What are the advantages of Selenium?
+115. What are Selenium limitations?
+116. How do you launch a browser?
+117. `driver.get()` vs `driver.navigate().to()`?
+118. `close()` vs `quit()`?
+119. What are locators in Selenium?
+120. How many types of locators are there?
+121. Which locator do you prefer and why?
+122. What is XPath?
+123. Absolute XPath vs relative XPath?
+124. How do you create dynamic XPath?
+125. `findElement()` vs `findElements()`?
+126. What happens if `findElement()` cannot find an element?
+127. What happens if `findElements()` cannot find anything?
+128. How do you handle dropdowns?
+129. What is Select class?
+130. How do you handle checkboxes?
+131. How do you handle radio buttons?
+132. How do you handle alerts?
+133. How do you handle frames?
+134. How do you handle iframe?
+135. How do you manage a new tab?
+136. How do you manage multiple windows?
+137. What is `getWindowHandle()`?
+138. What is `getWindowHandles()`?
+139. How do you switch back to parent window?
+140. How do you perform mouse hover?
+141. What is Actions class?
+142. How do you perform drag and drop?
+143. How do you perform double click?
+144. How do you perform right click?
+145. How do you perform keyboard actions?
+146. How do you scroll a page?
+147. What is JavaScriptExecutor?
+148. When do you use JavaScriptExecutor?
+149. How do you upload a file?
+150. How do you take screenshots?
+
+### Selenium Waits
+151. What is synchronization in Selenium?
+152. What is implicit wait?
+153. What is explicit wait?
+154. What is FluentWait?
+155. Implicit vs explicit wait?
+156. Why should we avoid `Thread.sleep()`?
+157. What is WebDriverWait?
+158. What are ExpectedConditions?
+159. How do you wait for an element to be clickable?
+160. How do you wait for visibility of an element?
+
+### Selenium Exceptions
+161. What is `NoSuchElementException`?
+162. How do you handle `NoSuchElementException`?
+163. What is `StaleElementReferenceException`?
+164. Why does stale element exception occur?
+165. How do you handle stale element exception?
+166. What is `TimeoutException`?
+167. What is `ElementNotInteractableException`?
+168. What is `ElementClickInterceptedException`?
+169. What is `NoSuchFrameException`?
+170. What is `NoSuchWindowException`?
+
+### TestNG
+171. What is TestNG?
+172. Why do we use TestNG?
+173. What are TestNG annotations?
+174. What is `@Test`?
+175. `@BeforeMethod` vs `@BeforeClass`?
+176. What is `priority` in TestNG?
+177. What is `dependsOnMethods`?
+178. What is `groups` in TestNG?
+179. How do you disable a test?
+180. What is DataProvider?
+181. DataProvider vs Parameters?
+182. How do you run tests in parallel?
+183. What is `testng.xml`?
+184. How do you generate TestNG reports?
+185. What is assertion?
+186. Hard Assert vs Soft Assert?
+
+### Automation Framework
+187. What is an automation framework?
+188. Which framework have you worked on?
+189. Explain your automation framework.
+190. What is Page Object Model?
+191. What are advantages of POM?
+192. What is PageFactory?
+193. POM vs PageFactory?
+194. What is data-driven framework?
+195. What is keyword-driven framework?
+196. What is hybrid framework?
+197. How do you manage test data?
+198. How do you manage configuration files?
+199. How do you manage locators?
+200. How do you manage reusable methods?
+201. How do you take screenshots on failure?
+202. How do you generate reports?
+203. How do you handle logs?
+204. How do you rerun failed test cases?
+205. How do you maintain your framework?
+
+### Maven / Git / Jenkins
+206. What is Maven?
+207. What is `pom.xml`?
+208. What is Maven dependency?
+209. What is Maven lifecycle?
+210. What is Git?
+211. Git vs GitHub?
+212. What is `git clone`?
+213. What is `git pull`?
+214. What is `git push`?
+215. What is commit?
+216. What is branch?
+217. What is merge?
+218. What is Jenkins?
+219. Why do we use Jenkins?
+220. How do you run automation through Jenkins?
+221. What is CI/CD?
+
+### API Testing
+222. What is API?
+223. What is API testing?
+224. What is REST API?
+225. GET vs POST?
+226. PUT vs PATCH?
+227. What is DELETE?
+228. What is request?
+229. What is response?
+230. What is status code?
+231. What is 200?
+232. What is 201?
+233. What is 400?
+234. What is 401?
+235. What is 403?
+236. What is 404?
+237. What is 500?
+238. What are headers?
+239. What is request body?
+240. What is JSON?
+241. What is authentication?
+242. What is Bearer Token?
+243. How do you validate an API response?
+
+### SQL
+244. What is SQL?
+245. What is database?
+246. What is primary key?
+247. What is foreign key?
+248. What is `SELECT`?
+249. What is `WHERE`?
+250. What is `ORDER BY`?
+251. What is `GROUP BY`?
+252. What are joins?
+253. Inner Join vs Left Join?
+254. What is Right Join?
+255. How do you find duplicate records?
+256. How do you find the second-highest salary?
+257. `DELETE` vs `TRUNCATE` vs `DROP`?
+
+### Real-Time Interview Questions
+258. Explain your current project.
+259. Explain your current role and responsibilities.
+260. Explain your automation framework architecture.
+261. How many test cases are automated in your project?
+262. How many test cases do you execute daily?
+263. How long does your regression suite take?
+264. What do you do when an automation test fails?
+265. How do you determine whether failure is a script issue or application defect?
+266. How do you debug failed automation?
+267. What challenges have you faced in Selenium?
+268. How did you solve stale element issues?
+269. How do you handle dynamic elements?
+270. How do you handle frequently changing XPath?
+271. How do you handle synchronization issues?
+272. How do you handle flaky tests?
+273. How do you decide which test cases should be automated?
+274. Which test cases should not be automated?
+275. What would you do if 50 test cases suddenly failed?
+276. How do you handle application changes in your framework?
+277. How do you report automation results to your team?
+278. How do you work with developers when you find a bug?
+279. What happens during your regression testing?
+280. Describe a difficult bug you found.
+281. Describe a challenging automation issue you fixed.
+282. What is your debugging approach?
+283. How do you train junior/trainee team members?
+284. How do you manage work when there are tight deadlines?
+285. Why are you looking for a job change?
+
+For your **3.8 years Automation Testing profile**, questions **258–285 are especially important** because interviewers will expect more than definitions—they'll ask about what you actually do in your project. 
+
+I recommend we prepare these **one by one exactly like we are doing now**: **simple explanation → code/example → interview answer → follow-up questions**.
