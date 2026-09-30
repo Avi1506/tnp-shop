@@ -1,13 +1,12 @@
 "use client";
 
+import { useState } from "react";
 import Image from "next/image";
-import type { MockupView } from "@/db/schema";
+import type { MockupView, PrintTemplate } from "@/db/schema";
 import CylindricalSurfacePreview from "@/components/product/CylindricalSurfacePreview";
+import CylindricalTextureLayer from "@/components/product/CylindricalTextureLayer";
 
 function resolvedMockupUrl(view: MockupView) {
-  // The supplied no-handle photograph is useful as a rear/side view, but it
-  // makes the primary customer preview read like a plain cylinder. Keep the
-  // exact supplied photo assets and use the handle-right shot for Front.
   if (
     view.id === "front" &&
     /\/images\/mockups\/mug-front\.jpg$/i.test(view.mockupUrl)
@@ -20,13 +19,22 @@ function resolvedMockupUrl(view: MockupView) {
 export default function CylindricalPhotoPreview({
   artworkUrl,
   view,
+  template,
   priority = false,
+  trueCylinder = false,
 }: {
   artworkUrl: string | null;
   view: MockupView;
+  template?: PrintTemplate;
   priority?: boolean;
+  trueCylinder?: boolean;
 }) {
+  const [webglUnavailable, setWebglUnavailable] = useState(false);
   const mockupUrl = resolvedMockupUrl(view);
+  const useTrueCylinder =
+    trueCylinder &&
+    Boolean(template?.cylindrical3d) &&
+    !webglUnavailable;
 
   return (
     <>
@@ -52,7 +60,16 @@ export default function CylindricalPhotoPreview({
             transformOrigin: "center",
           }}
         >
-          <CylindricalSurfacePreview artworkUrl={artworkUrl} view={view} />
+          {useTrueCylinder && template ? (
+            <CylindricalTextureLayer
+              artworkUrl={artworkUrl}
+              template={template}
+              view={view}
+              onUnavailable={() => setWebglUnavailable(true)}
+            />
+          ) : (
+            <CylindricalSurfacePreview artworkUrl={artworkUrl} view={view} />
+          )}
         </div>
       ) : null}
     </>
