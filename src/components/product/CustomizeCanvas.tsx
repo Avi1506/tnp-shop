@@ -767,6 +767,8 @@ export default function CustomizeCanvas({
                   <CylindricalPhotoPreview
                     artworkUrl={artworkSnapshot}
                     view={selectedView}
+                    template={template}
+                    trueCylinder
                     priority
                   />
                 ) : (
@@ -818,7 +820,7 @@ export default function CustomizeCanvas({
               )}
             </div>
             <p className="mt-3 text-center text-xs text-navy/60">
-              {selectedView?.name} · {template.printType === "cylindrical" ? (usePhotoCylindricalPreview ? "Cylindrical wrap preview on your real mug photo." : "3D wrap preview from your full flat artwork.") : "preview from your saved design."}
+              {selectedView?.name} · {template.printType === "cylindrical" ? (usePhotoCylindricalPreview ? "3D cylindrical texture preview on your real mug photo." : "3D wrap preview from your full flat artwork.") : "preview from your saved design."}
             </p>
           </div>
 
