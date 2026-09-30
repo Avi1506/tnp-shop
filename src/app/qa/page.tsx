@@ -578,6 +578,32 @@ function loadState(): StoredState {
   }
 }
 
+function normalizeState(value: Partial<StoredState> | null | undefined): StoredState {
+  return {
+    learnedAt: value?.learnedAt ?? {},
+    weak: value?.weak ?? {},
+    attempts: Number.isFinite(value?.attempts) ? Math.max(0, Number(value?.attempts)) : 0,
+  };
+}
+
+function mergeFirstLoginProgress(local: StoredState, cloud: StoredState): StoredState {
+  const learnedAt = { ...cloud.learnedAt };
+  for (const [id, date] of Object.entries(local.learnedAt)) {
+    if (!learnedAt[id]) learnedAt[id] = date;
+  }
+
+  const weak = { ...cloud.weak };
+  for (const [id, count] of Object.entries(local.weak)) {
+    weak[id] = Math.max(weak[id] ?? 0, count);
+  }
+
+  return {
+    learnedAt,
+    weak,
+    attempts: Math.max(local.attempts, cloud.attempts),
+  };
+}
+
 export default function QATrainerPage() {
   const [stored, setStored] = useState<StoredState>({
     learnedAt: {},
@@ -585,6 +611,8 @@ export default function QATrainerPage() {
     attempts: 0,
   });
   const [hydrated, setHydrated] = useState(false);
+  const [cloudReady, setCloudReady] = useState(false);
+  const [syncStatus, setSyncStatus] = useState<"loading" | "synced" | "offline">("loading");
   const [bankTopics, setBankTopics] = useState<Topic[]>([]);
   const [selectedCategory, setSelectedCategory] = useState("All Questions");
   const [openId, setOpenId] = useState<string | null>(null);
@@ -609,7 +637,8 @@ export default function QATrainerPage() {
   );
 
   useEffect(() => {
-    setStored(loadState());
+    const local = loadState();
+    setStored(local);
     setHydrated(true);
 
     void fetch("/qa-questions.txt")
@@ -619,12 +648,75 @@ export default function QATrainerPage() {
       })
       .then((text) => setBankTopics(makeBankTopics(text)))
       .catch(() => setBankTopics([]));
+
+    void (async () => {
+      try {
+        const response = await fetch("/api/qa-progress", {
+          cache: "no-store",
+          credentials: "same-origin",
+        });
+        if (!response.ok) throw new Error("Progress sync unavailable");
+
+        const data = (await response.json()) as {
+          userId: string;
+          state?: Partial<StoredState>;
+        };
+
+        const cloud = normalizeState(data.state);
+        const migrationKey = `qa-trainer-cloud-migrated:${data.userId}`;
+        const alreadyMigrated = localStorage.getItem(migrationKey) === "1";
+        const next = alreadyMigrated
+          ? cloud
+          : mergeFirstLoginProgress(local, cloud);
+
+        setStored(next);
+
+        if (!alreadyMigrated) {
+          const saveResponse = await fetch("/api/qa-progress", {
+            method: "PUT",
+            credentials: "same-origin",
+            headers: { "Content-Type": "application/json" },
+            body: JSON.stringify(next),
+          });
+          if (!saveResponse.ok) throw new Error("Initial progress migration failed");
+          localStorage.setItem(migrationKey, "1");
+        }
+
+        setCloudReady(true);
+        setSyncStatus("synced");
+      } catch {
+        setCloudReady(false);
+        setSyncStatus("offline");
+      }
+    })();
   }, []);
 
   useEffect(() => {
     if (!hydrated) return;
     localStorage.setItem(STORAGE_KEY, JSON.stringify(stored));
   }, [stored, hydrated]);
+
+  useEffect(() => {
+    if (!hydrated || !cloudReady) return;
+
+    setSyncStatus("loading");
+    const timer = window.setTimeout(() => {
+      void fetch("/api/qa-progress", {
+        method: "PUT",
+        credentials: "same-origin",
+        keepalive: true,
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify(stored),
+      })
+        .then((response) => {
+          if (!response.ok) throw new Error("Progress save failed");
+          setSyncStatus("synced");
+        })
+        .catch(() => setSyncStatus("offline"));
+    }, 350);
+
+    return () => window.clearTimeout(timer);
+  }, [stored, hydrated, cloudReady]);
 
   const learnedIds = useMemo(
     () => allTopics.filter((topic) => stored.learnedAt[topic.id]).map((topic) => topic.id),
@@ -907,6 +999,13 @@ export default function QATrainerPage() {
               </h1>
               <p className="mt-4 max-w-2xl text-sm leading-relaxed text-white/55 sm:text-base">
                 Simple explanation → interview answer → mark learned → quiz. Only learned questions enter your quiz.
+              </p>
+              <p className="mt-2 text-xs font-semibold text-white/40">
+                {syncStatus === "synced"
+                  ? "✓ Progress synced to your account"
+                  : syncStatus === "loading"
+                    ? "Saving progress…"
+                    : "Cloud sync temporarily unavailable — local progress is still safe on this device"}
               </p>
             </div>
 
