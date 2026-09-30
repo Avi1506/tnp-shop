@@ -18,6 +18,7 @@ function LoginForm() {
   const router = useRouter();
   const params = useSearchParams();
   const callbackUrl = safeCallbackUrl(params.get("callbackUrl"));
+  const isQaLogin = callbackUrl.startsWith("/qa");
 
   async function handleSubmit(e: React.FormEvent) {
     e.preventDefault();
@@ -35,7 +36,7 @@ function LoginForm() {
   return (
     <div className="container-page max-w-md py-16 md:py-24">
       <h1 className="font-display text-2xl font-semibold text-navy mb-2">Welcome back</h1>
-      <p className="text-navy/60 text-sm mb-8">Log in to check out and track your orders.</p>
+      <p className="text-navy/60 text-sm mb-8">{isQaLogin ? "Log in to continue your QA preparation and sync progress across devices." : "Log in to check out and track your orders."}</p>
 
       <form onSubmit={handleSubmit} className="space-y-4">
         <div>
