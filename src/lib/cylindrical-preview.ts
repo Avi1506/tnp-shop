@@ -36,16 +36,19 @@ export function buildCylindricalSlices(
   const curvature = clamp(options.curvatureStrength ?? 1, 0, 1.5);
   const perspective = clamp(options.perspectiveStrength ?? 0, -1, 1);
   const edgeFalloff = clamp(options.edgeFalloff ?? 0.32, 0, 1);
-  const sliceCount = Math.round(clamp(options.sliceCount ?? 128, 48, 220));
+  const sliceCount = Math.round(clamp(options.sliceCount ?? 160, 64, 240));
 
-  const maxTheta = Math.min(
-    Math.PI * 0.475,
-    Math.max(0.001, curvature) * (Math.PI / 2) * 0.98
-  );
-  const denom = Math.sin(maxTheta);
+  const maxTheta =
+    curvature < 0.01
+      ? 0
+      : Math.min(
+          Math.PI * 0.493,
+          Math.max(Math.PI * 0.39, curvature * (Math.PI / 2) * 0.98)
+        );
+  const denom = Math.sin(maxTheta || 1);
 
   const project = (u: number) => {
-    if (curvature < 0.001 || Math.abs(denom) < 0.0001) return u;
+    if (maxTheta < 0.001) return u;
     const theta = (u - 0.5) * 2 * maxTheta;
     return (Math.sin(theta) / denom + 1) / 2;
   };
@@ -62,22 +65,21 @@ export function buildCylindricalSlices(
     const destStart = project(sourceStart);
     const destEnd = project(sourceEnd);
 
-    const perspectiveShift = perspective * side * 0.045;
+    const perspectiveShift = perspective * side * 0.04;
     const perspectiveCompression =
-      Math.pow(sideAbs, 1.35) * Math.abs(perspective) * 0.055;
-    const cylindricalCompression =
-      Math.pow(sideAbs, 1.7) * Math.min(1.25, curvature) * 0.085;
+      Math.pow(sideAbs, 1.5) * Math.abs(perspective) * 0.045;
 
-    const destHeight = Math.max(
-      0.82,
-      1 - perspectiveCompression - cylindricalCompression
-    );
+    // Keep the print height nearly constant like a real cylinder. Only angled
+    // views get a small vertical perspective compression.
+    const destHeight = Math.max(0.9, 1 - perspectiveCompression);
     const destTop = (1 - destHeight) / 2 + perspectiveShift;
 
-    const edgeFade = smoothstep(0.52, 1, sideAbs);
+    // Make the artwork visibly turn away at the cylinder edges. This removes
+    // the hard rectangular "sticker" edge while preserving the flat wrap data.
+    const edgeFade = smoothstep(0.62, 1, sideAbs);
     const alpha = clamp(
-      1 - (edgeFalloff + Math.min(0.16, curvature * 0.12)) * edgeFade,
-      0.55,
+      1 - (0.72 + edgeFalloff * 0.25) * edgeFade,
+      0.08,
       1
     );
 

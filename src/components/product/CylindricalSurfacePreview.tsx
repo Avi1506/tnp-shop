@@ -71,13 +71,13 @@ export default function CylindricalSurfacePreview({
         const sx = sourceX + sourceWidth * slice.sourceStart;
         const sw = Math.max(
           1,
-          sourceWidth * (slice.sourceEnd - slice.sourceStart) + 0.85
+          sourceWidth * (slice.sourceEnd - slice.sourceStart) + 1
         );
 
         const dx = rect.width * slice.destStart;
         const dw = Math.max(
           0.75,
-          rect.width * (slice.destEnd - slice.destStart) + 0.9
+          rect.width * (slice.destEnd - slice.destStart) + 1
         );
         const dy = rect.height * slice.destTop;
         const dh = rect.height * slice.destHeight;
@@ -98,18 +98,17 @@ export default function CylindricalSurfacePreview({
 
       context.globalAlpha = 1;
 
-      // Preview-only cylindrical lighting. This changes the printed artwork
-      // appearance, not the supplied blank mug photograph underneath it.
-      const edgeShade = 0.22 * Math.min(1.2, settings.curvatureStrength);
-      const highlight = 0.065 * Math.min(1.2, settings.curvatureStrength);
+      // Stronger cylindrical lighting: center stays bright while both sides
+      // roll into shadow, matching the visual cue of a curved ceramic mug.
       const shade = context.createLinearGradient(0, 0, rect.width, 0);
-      shade.addColorStop(0, `rgba(0,0,0,${edgeShade})`);
-      shade.addColorStop(0.14, "rgba(0,0,0,0.08)");
-      shade.addColorStop(0.34, "rgba(255,255,255,0.02)");
-      shade.addColorStop(0.5, `rgba(255,255,255,${highlight})`);
-      shade.addColorStop(0.66, "rgba(255,255,255,0.02)");
-      shade.addColorStop(0.86, "rgba(0,0,0,0.08)");
-      shade.addColorStop(1, `rgba(0,0,0,${edgeShade})`);
+      shade.addColorStop(0, "rgba(0,0,0,0.34)");
+      shade.addColorStop(0.12, "rgba(0,0,0,0.17)");
+      shade.addColorStop(0.28, "rgba(0,0,0,0.055)");
+      shade.addColorStop(0.48, "rgba(255,255,255,0.07)");
+      shade.addColorStop(0.58, "rgba(255,255,255,0.035)");
+      shade.addColorStop(0.76, "rgba(0,0,0,0.06)");
+      shade.addColorStop(0.9, "rgba(0,0,0,0.18)");
+      shade.addColorStop(1, "rgba(0,0,0,0.36)");
 
       context.globalCompositeOperation = "source-atop";
       context.fillStyle = shade;
