@@ -17,6 +17,7 @@ function RegisterForm() {
   const router = useRouter();
   const params = useSearchParams();
   const callbackUrl = safeCallbackUrl(params.get("callbackUrl"));
+  const isQaRegistration = callbackUrl.startsWith("/qa");
 
   async function handleSubmit(e: React.FormEvent) {
     e.preventDefault();
@@ -50,7 +51,7 @@ function RegisterForm() {
   return (
     <div className="container-page max-w-md py-16 md:py-24">
       <h1 className="font-display text-2xl font-semibold text-navy mb-2">Create your account</h1>
-      <p className="text-navy/60 text-sm mb-8">Required to check out — lets you track orders and reorder easily.</p>
+      <p className="text-navy/60 text-sm mb-8">{isQaRegistration ? "Create an account once, then your QA learning progress will sync across your phone and laptop." : "Required to check out — lets you track orders and reorder easily."}</p>
 
       <form onSubmit={handleSubmit} className="space-y-4">
         {[
