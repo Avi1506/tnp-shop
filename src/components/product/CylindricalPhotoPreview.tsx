@@ -3,6 +3,8 @@
 import { useEffect, useRef } from "react";
 import type { MockupView, PrintTemplate } from "@/db/schema";
 
+type Point = { x: number; y: number };
+
 function loadImage(url: string) {
   return new Promise<HTMLImageElement>((resolve, reject) => {
     const image = new window.Image();
@@ -25,6 +27,100 @@ function resolvedMockupUrl(view: MockupView) {
     return "/images/mockups/mug-left.jpg";
   }
   return view.mockupUrl;
+}
+
+function drawTexturedTriangle(
+  ctx: CanvasRenderingContext2D,
+  image: HTMLImageElement,
+  source: [Point, Point, Point],
+  destination: [Point, Point, Point]
+) {
+  const [s0, s1, s2] = source;
+  const [d0, d1, d2] = destination;
+
+  const determinant =
+    s0.x * (s1.y - s2.y) +
+    s1.x * (s2.y - s0.y) +
+    s2.x * (s0.y - s1.y);
+
+  if (Math.abs(determinant) < 0.000001) return;
+
+  const a =
+    (d0.x * (s1.y - s2.y) +
+      d1.x * (s2.y - s0.y) +
+      d2.x * (s0.y - s1.y)) /
+    determinant;
+  const b =
+    (d0.y * (s1.y - s2.y) +
+      d1.y * (s2.y - s0.y) +
+      d2.y * (s0.y - s1.y)) /
+    determinant;
+  const c =
+    (d0.x * (s2.x - s1.x) +
+      d1.x * (s0.x - s2.x) +
+      d2.x * (s1.x - s0.x)) /
+    determinant;
+  const d =
+    (d0.y * (s2.x - s1.x) +
+      d1.y * (s0.x - s2.x) +
+      d2.y * (s1.x - s0.x)) /
+    determinant;
+  const e =
+    (d0.x * (s1.x * s2.y - s2.x * s1.y) +
+      d1.x * (s2.x * s0.y - s0.x * s2.y) +
+      d2.x * (s0.x * s1.y - s1.x * s0.y)) /
+    determinant;
+  const f =
+    (d0.y * (s1.x * s2.y - s2.x * s1.y) +
+      d1.y * (s2.x * s0.y - s0.x * s2.y) +
+      d2.y * (s0.x * s1.y - s1.x * s0.y)) /
+    determinant;
+
+  ctx.save();
+  ctx.beginPath();
+  ctx.moveTo(d0.x, d0.y);
+  ctx.lineTo(d1.x, d1.y);
+  ctx.lineTo(d2.x, d2.y);
+  ctx.closePath();
+  ctx.clip();
+  ctx.transform(a, b, c, d, e, f);
+  ctx.drawImage(image, 0, 0);
+  ctx.restore();
+}
+
+function viewCalibration(view: MockupView) {
+  const id = view.id.toLowerCase();
+
+  if (id === "left") {
+    return {
+      angleDeg: -65,
+      topCurvePct: 1.15,
+      bottomCurvePct: 0.85,
+      verticalTiltPct: -0.45,
+      edgeHeightLossPct: 2.1,
+      edgeAlpha: 0.78,
+    };
+  }
+
+  if (id === "right") {
+    return {
+      angleDeg: 65,
+      topCurvePct: 1.05,
+      bottomCurvePct: 0.9,
+      verticalTiltPct: 0.45,
+      edgeHeightLossPct: 2.1,
+      edgeAlpha: 0.78,
+    };
+  }
+
+  return {
+    angleDeg: 0,
+    topCurvePct: 0.95,
+    bottomCurvePct: 0.75,
+    verticalTiltPct: 0,
+    edgeHeightLossPct: 1.6,
+    edgeAlpha: 0.82,
+  };
 }
 
 export default function CylindricalPhotoPreview({
@@ -70,7 +166,6 @@ export default function CylindricalPhotoPreview({
       ctx.imageSmoothingEnabled = true;
       ctx.imageSmoothingQuality = "high";
 
-      // Match the previous <Image object-contain> behaviour exactly.
       const mockupScale = Math.min(
         rect.width / mockup.width,
         rect.height / mockup.height
@@ -80,6 +175,7 @@ export default function CylindricalPhotoPreview({
       const mockupX = (rect.width - mockupWidth) / 2;
       const mockupY = (rect.height - mockupHeight) / 2;
 
+      // Base photography is never modified.
       ctx.drawImage(mockup, mockupX, mockupY, mockupWidth, mockupHeight);
 
       if (!artwork) return;
@@ -95,170 +191,146 @@ export default function CylindricalPhotoPreview({
 
       if (printWidth < 2 || printHeight < 2) return;
 
-      const offscreen = document.createElement("canvas");
-      const offDpr = Math.min(dpr, 2);
-      offscreen.width = Math.max(1, Math.round(printWidth * offDpr));
-      offscreen.height = Math.max(1, Math.round(printHeight * offDpr));
-
-      const off = offscreen.getContext("2d");
-      if (!off) return;
-
-      off.setTransform(offDpr, 0, 0, offDpr, 0, 0);
-      off.clearRect(0, 0, printWidth, printHeight);
-      off.imageSmoothingEnabled = true;
-      off.imageSmoothingQuality = "high";
-
       const coverageDeg = clamp(
         template?.cylindrical3d?.wrapCoverageDeg ?? 270,
         220,
         355
       );
       const coverageRad = (coverageDeg * Math.PI) / 180;
-      const viewAngleDeg =
-        view.angleDeg ??
-        (view.id === "left" ? -65 : view.id === "right" ? 65 : 0);
+      const calibration = viewCalibration(view);
+      const sourceCenter = 0.5 + calibration.angleDeg / coverageDeg;
 
-      // One full flat wrap remains the source of truth. Each camera view just
-      // moves the angular centre over that same source texture.
-      const sourceCenter = 0.5 + viewAngleDeg / coverageDeg;
-      const stripeCount = Math.max(
-        220,
-        Math.min(700, Math.round(printWidth * 2))
-      );
+      const columns = 48;
+      const rows = 14;
+      const thetaMax = (84 * Math.PI) / 180;
+      const sinThetaMax = Math.sin(thetaMax);
 
-      for (let index = 0; index < stripeCount; index += 1) {
-        const x0 = index / stripeCount;
-        const x1 = (index + 1) / stripeCount;
-        const centreX = (x0 + x1) / 2;
+      const vertices: Array<Array<{
+        source: Point;
+        destination: Point;
+        alpha: number;
+        valid: boolean;
+      }>> = [];
 
-        // Orthographic projection of a cylinder: screenX = sin(theta).
-        // Invert it so equal destination columns sample increasingly wider
-        // artwork sections toward the tangents — the wrap visibly turns away.
-        const n0 = clamp(x0 * 2 - 1, -0.9998, 0.9998);
-        const n1 = clamp(x1 * 2 - 1, -0.9998, 0.9998);
-        const centreN = clamp(centreX * 2 - 1, -0.9998, 0.9998);
+      for (let row = 0; row <= rows; row += 1) {
+        const v = row / rows;
+        const rowVertices = [];
 
-        const theta0 = Math.asin(n0);
-        const theta1 = Math.asin(n1);
-        const theta = Math.asin(centreN);
+        for (let column = 0; column <= columns; column += 1) {
+          const visibleU = column / columns;
+          const theta = (visibleU - 0.5) * 2 * thetaMax;
+          const facing = Math.max(0, Math.cos(theta));
+          const side = Math.sin(theta) / sinThetaMax;
 
-        let u0 = sourceCenter + theta0 / coverageRad;
-        let u1 = sourceCenter + theta1 / coverageRad;
+          const sourceU = sourceCenter + theta / coverageRad;
+          const valid = sourceU >= 0 && sourceU <= 1;
 
-        if (u1 <= 0 || u0 >= 1) continue;
+          const curve = 1 - facing;
+          const topCurve =
+            (calibration.topCurvePct / 100) * mockupHeight * curve;
+          const bottomCurve =
+            (calibration.bottomCurvePct / 100) * mockupHeight * curve;
+          const heightLoss =
+            (calibration.edgeHeightLossPct / 100) * mockupHeight * curve;
+          const tilt =
+            (calibration.verticalTiltPct / 100) * mockupHeight * side;
 
-        u0 = clamp(u0, 0, 1);
-        u1 = clamp(u1, 0, 1);
-        if (u1 <= u0) continue;
+          const top = printY + topCurve + tilt + heightLoss * 0.5;
+          const bottom =
+            printY + printHeight - bottomCurve + tilt - heightLoss * 0.5;
 
-        const sx = artwork.width * u0;
-        const sw = Math.max(
-          1,
-          artwork.width * (u1 - u0) + 0.75
-        );
+          rowVertices.push({
+            source: {
+              x: clamp(sourceU, 0, 1) * artwork.width,
+              y: v * artwork.height,
+            },
+            destination: {
+              x: printX + ((side + 1) / 2) * printWidth,
+              y: top + (bottom - top) * v,
+            },
+            alpha:
+              calibration.edgeAlpha +
+              (1 - calibration.edgeAlpha) * Math.pow(facing, 0.45),
+            valid,
+          });
+        }
 
-        const dx = printWidth * x0;
-        const dw = Math.max(
-          0.8,
-          printWidth * (x1 - x0) + 0.8
-        );
-
-        const facing = Math.max(0, Math.cos(theta));
-
-        // Ceramic roll-off: Zazzle-like previews become noticeably darker
-        // toward the tangents while retaining a soft highlight on the lit side.
-        const highlight =
-          0.10 * Math.exp(-Math.pow((centreN + 0.26) / 0.18, 2));
-        const rightSideLoss = 0.08 * Math.max(0, centreN);
-        const brightness = clamp(
-          0.52 +
-            0.48 * Math.pow(facing, 0.55) +
-            highlight -
-            rightSideLoss,
-          0.45,
-          1.08
-        );
-
-        // Ink is still visible near the tangent, but loses apparent area as
-        // the surface rotates away from the viewer.
-        const edgeAlpha = clamp(
-          0.58 + 0.42 * Math.pow(facing, 0.28),
-          0.58,
-          1
-        );
-
-        off.globalAlpha = edgeAlpha;
-        off.filter = `brightness(${Math.round(brightness * 100)}%)`;
-        off.drawImage(
-          artwork,
-          sx,
-          0,
-          sw,
-          artwork.height,
-          dx,
-          0,
-          dw,
-          printHeight
-        );
+        vertices.push(rowVertices);
       }
 
-      off.filter = "none";
-      off.globalAlpha = 1;
-
-      // Multiply print into the ORIGINAL photograph. White artwork leaves the
-      // ceramic photo untouched; colours inherit the mug's real highlights,
-      // shadows and texture instead of covering them with a flat rectangle.
       ctx.save();
       ctx.globalCompositeOperation = "multiply";
 
-      // Tiny tangent fade removes the hard vertical overlay boundary without
-      // altering the supplied mug photograph itself.
-      const mask = document.createElement("canvas");
-      mask.width = offscreen.width;
-      mask.height = offscreen.height;
-      const maskCtx = mask.getContext("2d");
-      if (maskCtx) {
-        maskCtx.setTransform(offDpr, 0, 0, offDpr, 0, 0);
-        maskCtx.drawImage(offscreen, 0, 0, printWidth, printHeight);
-        maskCtx.globalCompositeOperation = "destination-in";
-        const fade = maskCtx.createLinearGradient(0, 0, printWidth, 0);
-        fade.addColorStop(0, "rgba(255,255,255,0.18)");
-        fade.addColorStop(0.035, "rgba(255,255,255,0.78)");
-        fade.addColorStop(0.085, "rgba(255,255,255,1)");
-        fade.addColorStop(0.915, "rgba(255,255,255,1)");
-        fade.addColorStop(0.965, "rgba(255,255,255,0.78)");
-        fade.addColorStop(1, "rgba(255,255,255,0.18)");
-        maskCtx.fillStyle = fade;
-        maskCtx.fillRect(0, 0, printWidth, printHeight);
+      for (let row = 0; row < rows; row += 1) {
+        for (let column = 0; column < columns; column += 1) {
+          const p00 = vertices[row][column];
+          const p10 = vertices[row][column + 1];
+          const p01 = vertices[row + 1][column];
+          const p11 = vertices[row + 1][column + 1];
 
-        ctx.drawImage(mask, printX, printY, printWidth, printHeight);
-      } else {
-        ctx.drawImage(
-          offscreen,
-          printX,
-          printY,
-          printWidth,
-          printHeight
-        );
+          if (!(p00.valid && p10.valid && p01.valid && p11.valid)) {
+            continue;
+          }
+
+          const alpha =
+            (p00.alpha + p10.alpha + p01.alpha + p11.alpha) / 4;
+          ctx.globalAlpha = alpha;
+
+          drawTexturedTriangle(
+            ctx,
+            artwork,
+            [p00.source, p10.source, p11.source],
+            [p00.destination, p10.destination, p11.destination]
+          );
+          drawTexturedTriangle(
+            ctx,
+            artwork,
+            [p00.source, p11.source, p01.source],
+            [p00.destination, p11.destination, p01.destination]
+          );
+        }
       }
 
       ctx.restore();
+      ctx.globalAlpha = 1;
       ctx.globalCompositeOperation = "source-over";
+
+      // A very soft photographic roll-off at the extreme tangents prevents the
+      // print edge from reading like a pasted rectangular sticker.
+      ctx.save();
+      ctx.globalCompositeOperation = "multiply";
+      const tangentShade = ctx.createLinearGradient(
+        printX,
+        0,
+        printX + printWidth,
+        0
+      );
+      tangentShade.addColorStop(0, "rgba(30,30,30,0.18)");
+      tangentShade.addColorStop(0.08, "rgba(30,30,30,0.05)");
+      tangentShade.addColorStop(0.26, "rgba(255,255,255,0)");
+      tangentShade.addColorStop(0.74, "rgba(255,255,255,0)");
+      tangentShade.addColorStop(0.92, "rgba(30,30,30,0.05)");
+      tangentShade.addColorStop(1, "rgba(30,30,30,0.18)");
+      ctx.fillStyle = tangentShade;
+      ctx.fillRect(printX, printY, printWidth, printHeight);
+      ctx.restore();
     };
 
-    const promises: Promise<unknown>[] = [loadImage(mockupUrl).then((image) => {
-      mockup = image;
-    })];
+    const jobs: Promise<unknown>[] = [
+      loadImage(mockupUrl).then((image) => {
+        mockup = image;
+      }),
+    ];
 
     if (artworkUrl) {
-      promises.push(
+      jobs.push(
         loadImage(artworkUrl).then((image) => {
           artwork = image;
         })
       );
     }
 
-    void Promise.all(promises).then(() => {
+    void Promise.all(jobs).then(() => {
       if (!cancelled) render();
     });
 
@@ -275,7 +347,7 @@ export default function CylindricalPhotoPreview({
     <canvas
       ref={canvasRef}
       className="absolute inset-0 h-full w-full"
-      aria-label={`${view.name} cylindrical mug preview`}
+      aria-label={`${view.name} calibrated mesh mug preview`}
     />
   );
 }

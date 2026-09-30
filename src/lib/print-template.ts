@@ -122,19 +122,19 @@ export function resolveProductTemplate(
       edgeFalloff: number;
     }> = {
       front: {
-        printArea: { xPct: 29, yPct: 31.5, widthPct: 42, heightPct: 52 },
+        printArea: { xPct: 28.5, yPct: 35, widthPct: 43, heightPct: 44 },
         curvatureStrength: 0.86,
         perspectiveStrength: 0,
         edgeFalloff: 0.18,
       },
       left: {
-        printArea: { xPct: 30, yPct: 31.5, widthPct: 41, heightPct: 52 },
+        printArea: { xPct: 29, yPct: 35, widthPct: 42, heightPct: 44 },
         curvatureStrength: 0.9,
         perspectiveStrength: -0.06,
         edgeFalloff: 0.22,
       },
       right: {
-        printArea: { xPct: 29, yPct: 31.5, widthPct: 41, heightPct: 52 },
+        printArea: { xPct: 29, yPct: 35, widthPct: 42, heightPct: 44 },
         curvatureStrength: 0.9,
         perspectiveStrength: 0.06,
         edgeFalloff: 0.22,
