@@ -1,10 +1,8 @@
 "use client";
 
-import { useCallback, useState } from "react";
 import Image from "next/image";
 import type { MockupView, PrintTemplate } from "@/db/schema";
 import CylindricalSurfacePreview from "@/components/product/CylindricalSurfacePreview";
-import CylindricalTextureLayer from "@/components/product/CylindricalTextureLayer";
 
 function resolvedMockupUrl(view: MockupView) {
   if (
@@ -21,16 +19,12 @@ export default function CylindricalPhotoPreview({
   view,
   template,
   priority = false,
-  trueCylinder = false,
 }: {
   artworkUrl: string | null;
   view: MockupView;
   template?: PrintTemplate;
   priority?: boolean;
-  trueCylinder?: boolean;
 }) {
-  const [fallback, setFallback] = useState(false);
-  const useFallback = useCallback(() => setFallback(true), []);
   const mockupUrl = resolvedMockupUrl(view);
 
   return (
@@ -57,16 +51,11 @@ export default function CylindricalPhotoPreview({
             transformOrigin: "center",
           }}
         >
-          {trueCylinder && template && !fallback ? (
-            <CylindricalTextureLayer
-              artworkUrl={artworkUrl}
-              template={template}
-              view={view}
-              onUnavailable={useFallback}
-            />
-          ) : (
-            <CylindricalSurfacePreview artworkUrl={artworkUrl} view={view} />
-          )}
+          <CylindricalSurfacePreview
+            artworkUrl={artworkUrl}
+            view={view}
+            wrapCoverageDeg={template?.cylindrical3d?.wrapCoverageDeg ?? 270}
+          />
         </div>
       ) : null}
     </>
