@@ -820,7 +820,7 @@ export default function CustomizeCanvas({
               )}
             </div>
             <p className="mt-3 text-center text-xs text-navy/60">
-              {selectedView?.name} · {template.printType === "cylindrical" ? (usePhotoCylindricalPreview ? "Calibrated cylindrical wrap on your real mug photo." : "3D wrap preview from your full flat artwork.") : "preview from your saved design."}
+              {selectedView?.name} · {template.printType === "cylindrical" ? (usePhotoCylindricalPreview ? "Real-photo cylindrical wrap preview." : "3D wrap preview from your full flat artwork.") : "preview from your saved design."}
             </p>
           </div>
 
