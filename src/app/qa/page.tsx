@@ -488,15 +488,15 @@ function makeBankTopics(text: string): Topic[] {
   let category = "";
   const base: Array<Omit<Topic, "quiz">> = [];
 
-  for (const rawLine of text.split(/\\r?\\n/)) {
+  for (const rawLine of text.split(/\r?\n/)) {
     const line = rawLine.trim();
-    const heading = line.match(/^###\\s+(.+)$/);
+    const heading = line.match(/^###\s+(.+)$/);
     if (heading) {
       category = heading[1].trim();
       continue;
     }
 
-    const match = line.match(/^(\\d+)\\.\\s+(.+)$/);
+    const match = line.match(/^(\d+)\.\s+(.+)$/);
     if (!match || !category) continue;
 
     const numericId = Number(match[1]);
@@ -586,7 +586,7 @@ export default function QATrainerPage() {
   });
   const [hydrated, setHydrated] = useState(false);
   const [bankTopics, setBankTopics] = useState<Topic[]>([]);
-  const [selectedCategory, setSelectedCategory] = useState("Manual Testing");
+  const [selectedCategory, setSelectedCategory] = useState("All Questions");
   const [openId, setOpenId] = useState<string | null>(null);
   const [search, setSearch] = useState("");
   const [screen, setScreen] = useState<"learn" | "quiz" | "result">("learn");
