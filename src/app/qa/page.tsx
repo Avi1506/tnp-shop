@@ -21,6 +21,7 @@ import {
   Trophy,
   XCircle,
 } from "lucide-react";
+import { ANSWERS } from "./data";
 
 type QuizVariant = {
   question: string;
@@ -35,13 +36,13 @@ type Topic = {
   category: string;
   easy: string;
   interview: string;
-  trick: string;
+  trick?: string;
   code?: string;
   followUp?: string;
   quiz: QuizVariant[];
 };
 
-const TOPICS: Topic[] = [
+const CORE_TOPICS: Topic[] = [
   {
     id: "parallel-testing",
     title: "What is parallel testing?",
@@ -477,6 +478,78 @@ public static void unload() {
   },
 ];
 
+function rotateItems<T>(items: T[], amount: number) {
+  if (!items.length) return items;
+  const shift = ((amount % items.length) + items.length) % items.length;
+  return [...items.slice(shift), ...items.slice(0, shift)];
+}
+
+function makeBankTopics(text: string): Topic[] {
+  let category = "";
+  const base: Array<Omit<Topic, "quiz">> = [];
+
+  for (const rawLine of text.split(/\\r?\\n/)) {
+    const line = rawLine.trim();
+    const heading = line.match(/^###\\s+(.+)$/);
+    if (heading) {
+      category = heading[1].trim();
+      continue;
+    }
+
+    const match = line.match(/^(\\d+)\\.\\s+(.+)$/);
+    if (!match || !category) continue;
+
+    const numericId = Number(match[1]);
+    const answer = ANSWERS[numericId];
+    if (!answer) continue;
+
+    base.push({
+      id: "q-" + numericId,
+      title: match[2].replaceAll(String.fromCharCode(96), ""),
+      category,
+      easy: answer.easy,
+      interview: answer.interview,
+      trick: answer.trick,
+      code: answer.code,
+    });
+  }
+
+  return base.map((topic) => {
+    const numericId = Number(topic.id.replace("q-", ""));
+    const candidates = rotateItems(
+      base.filter(
+        (candidate) =>
+          candidate.category === topic.category && candidate.id !== topic.id
+      ),
+      numericId
+    );
+    const distractors: string[] = [];
+
+    for (const candidate of candidates) {
+      if (candidate.easy !== topic.easy && !distractors.includes(candidate.easy)) {
+        distractors.push(candidate.easy);
+      }
+      if (distractors.length === 3) break;
+    }
+
+    const rawOptions = [topic.easy, ...distractors].slice(0, 4);
+    const options = rotateItems(rawOptions, numericId);
+    const answerIndex = options.indexOf(topic.easy);
+
+    return {
+      ...topic,
+      quiz: [
+        {
+          question: topic.title,
+          options,
+          answer: answerIndex,
+          explanation: topic.interview,
+        },
+      ],
+    };
+  });
+}
+
 type StoredState = {
   learnedAt: Record<string, string>;
   weak: Record<string, number>;
@@ -512,7 +585,9 @@ export default function QATrainerPage() {
     attempts: 0,
   });
   const [hydrated, setHydrated] = useState(false);
-  const [openId, setOpenId] = useState<string | null>(TOPICS[0]?.id ?? null);
+  const [bankTopics, setBankTopics] = useState<Topic[]>([]);
+  const [selectedCategory, setSelectedCategory] = useState("Manual Testing");
+  const [openId, setOpenId] = useState<string | null>(null);
   const [search, setSearch] = useState("");
   const [screen, setScreen] = useState<"learn" | "quiz" | "result">("learn");
   const [scope, setScope] = useState<"today" | "all" | "weak">("all");
@@ -520,9 +595,30 @@ export default function QATrainerPage() {
   const [quizIndex, setQuizIndex] = useState(0);
   const [answers, setAnswers] = useState<Record<string, number>>({});
 
+  const allTopics = useMemo(
+    () => [...bankTopics, ...CORE_TOPICS],
+    [bankTopics]
+  );
+
+  const categories = useMemo(
+    () => [
+      "All Questions",
+      ...Array.from(new Set(allTopics.map((topic) => topic.category))),
+    ],
+    [allTopics]
+  );
+
   useEffect(() => {
     setStored(loadState());
     setHydrated(true);
+
+    void fetch("/qa-questions.txt")
+      .then((response) => {
+        if (!response.ok) throw new Error("Question bank failed to load");
+        return response.text();
+      })
+      .then((text) => setBankTopics(makeBankTopics(text)))
+      .catch(() => setBankTopics([]));
   }, []);
 
   useEffect(() => {
@@ -531,8 +627,8 @@ export default function QATrainerPage() {
   }, [stored, hydrated]);
 
   const learnedIds = useMemo(
-    () => TOPICS.filter((topic) => stored.learnedAt[topic.id]).map((topic) => topic.id),
-    [stored.learnedAt]
+    () => allTopics.filter((topic) => stored.learnedAt[topic.id]).map((topic) => topic.id),
+    [allTopics, stored.learnedAt]
   );
 
   const todayIds = useMemo(() => {
@@ -547,16 +643,25 @@ export default function QATrainerPage() {
 
   const filteredTopics = useMemo(() => {
     const q = search.trim().toLowerCase();
-    if (!q) return TOPICS;
-    return TOPICS.filter(
-      (topic) =>
+    return allTopics.filter((topic) => {
+      const inCategory =
+        selectedCategory === "All Questions" ||
+        topic.category === selectedCategory;
+      if (!inCategory) return false;
+      if (!q) return true;
+
+      return (
         topic.title.toLowerCase().includes(q) ||
         topic.category.toLowerCase().includes(q) ||
-        topic.easy.toLowerCase().includes(q)
-    );
-  }, [search]);
+        topic.easy.toLowerCase().includes(q) ||
+        topic.interview.toLowerCase().includes(q)
+      );
+    });
+  }, [allTopics, search, selectedCategory]);
 
-  const progress = Math.round((learnedIds.length / TOPICS.length) * 100);
+  const progress = allTopics.length
+    ? Math.round((learnedIds.length / allTopics.length) * 100)
+    : 0;
 
   function markLearned(id: string) {
     setStored((current) => ({
@@ -599,7 +704,7 @@ export default function QATrainerPage() {
     setScreen("quiz");
   }
 
-  const currentTopic = TOPICS.find((topic) => topic.id === quizIds[quizIndex]);
+  const currentTopic = allTopics.find((topic) => topic.id === quizIds[quizIndex]);
   const variantIndex = currentTopic ? stored.attempts % currentTopic.quiz.length : 0;
   const currentQuiz = currentTopic?.quiz[variantIndex];
 
@@ -616,7 +721,7 @@ export default function QATrainerPage() {
 
     const newWeak = { ...stored.weak };
     quizIds.forEach((id) => {
-      const topic = TOPICS.find((item) => item.id === id);
+      const topic = allTopics.find((item) => item.id === id);
       if (!topic) return;
       const q = topic.quiz[stored.attempts % topic.quiz.length];
       const selected = answers[id];
@@ -637,12 +742,12 @@ export default function QATrainerPage() {
 
   const correctCount = useMemo(() => {
     return quizIds.reduce((total, id) => {
-      const topic = TOPICS.find((item) => item.id === id);
+      const topic = allTopics.find((item) => item.id === id);
       if (!topic) return total;
       const q = topic.quiz[stored.attempts % topic.quiz.length];
       return total + (answers[id] === q.answer ? 1 : 0);
     }, 0);
-  }, [answers, quizIds, stored.attempts]);
+  }, [allTopics, answers, quizIds, stored.attempts]);
 
   const resultPercent = quizIds.length
     ? Math.round((correctCount / quizIds.length) * 100)
@@ -788,25 +893,25 @@ export default function QATrainerPage() {
   return (
     <main className="min-h-screen bg-slate-950 text-white">
       <div className="border-b border-white/5 bg-[radial-gradient(circle_at_top_left,_#312e81_0,_#111827_40%,_#020617_100%)]">
-        <div className="mx-auto max-w-6xl px-4 py-8 sm:px-6 sm:py-12">
+        <div className="mx-auto max-w-6xl px-4 py-5 sm:px-6 sm:py-8">
           <div className="flex flex-col justify-between gap-6 lg:flex-row lg:items-end">
             <div>
               <div className="mb-3 inline-flex items-center gap-2 rounded-full border border-cyan-300/20 bg-cyan-300/10 px-3 py-1.5 text-xs font-black text-cyan-200">
                 <Sparkles size={14} /> QA Interview Trainer
               </div>
-              <h1 className="max-w-3xl text-3xl font-black tracking-tight sm:text-5xl">
+              <h1 className="max-w-3xl text-2xl font-black tracking-tight sm:text-4xl">
                 Learn like a story.
                 <span className="block bg-gradient-to-r from-cyan-300 to-violet-400 bg-clip-text text-transparent">
                   Answer like an interviewer expects.
                 </span>
               </h1>
               <p className="mt-4 max-w-2xl text-sm leading-relaxed text-white/55 sm:text-base">
-                Simple explanation → interview line → memory trick → quiz. Your quiz only uses questions you have already learned.
+                Simple explanation → interview answer → mark learned → quiz. Only learned questions enter your quiz.
               </p>
             </div>
 
             <div className="grid grid-cols-3 gap-2 sm:gap-3">
-              <Stat icon={<BookOpen size={17} />} value={`${learnedIds.length}/${TOPICS.length}`} label="Learned" />
+              <Stat icon={<BookOpen size={17} />} value={`${learnedIds.length}/${allTopics.length}`} label="Learned" />
               <Stat icon={<Target size={17} />} value={`${progress}%`} label="Progress" />
               <Stat icon={<Flame size={17} />} value={String(weakIds.length)} label="Weak" />
             </div>
@@ -822,8 +927,23 @@ export default function QATrainerPage() {
       </div>
 
       <div className="mx-auto grid max-w-6xl gap-6 px-4 py-7 sm:px-6 lg:grid-cols-[1fr_320px]">
-        <section>
-          <div className="sticky top-0 z-20 -mx-2 mb-5 bg-slate-950/90 px-2 py-3 backdrop-blur-xl">
+        <section className="lg:order-first">
+          <div className="sticky top-0 z-20 -mx-2 mb-5 space-y-3 bg-slate-950/95 px-2 py-3 backdrop-blur-xl">
+            <select
+              value={selectedCategory}
+              onChange={(event) => {
+                setSelectedCategory(event.target.value);
+                setOpenId(null);
+              }}
+              aria-label="Choose interview category"
+              className="w-full rounded-2xl border border-white/10 bg-slate-900 px-4 py-3.5 text-sm font-bold text-white outline-none focus:border-cyan-300/40"
+            >
+              {categories.map((category) => (
+                <option key={category} value={category}>
+                  {category}
+                </option>
+              ))}
+            </select>
             <div className="relative">
               <Search className="absolute left-4 top-1/2 -translate-y-1/2 text-white/35" size={18} />
               <input
@@ -833,6 +953,11 @@ export default function QATrainerPage() {
                 className="w-full rounded-2xl border border-white/10 bg-white/[0.06] py-3.5 pl-11 pr-4 text-sm outline-none transition placeholder:text-white/30 focus:border-cyan-300/40"
               />
             </div>
+          </div>
+
+          <div className="mb-3 flex items-center justify-between text-xs text-white/40">
+            <span>{filteredTopics.length} questions</span>
+            <span>Tap a question to study</span>
           </div>
 
           <div className="space-y-3">
@@ -876,12 +1001,14 @@ export default function QATrainerPage() {
                         body={topic.interview}
                         tone="violet"
                       />
-                      <LearningBlock
-                        icon={<Lightbulb size={17} />}
-                        title="Yaad rakhne ki trick"
-                        body={topic.trick}
-                        tone="amber"
-                      />
+                      {topic.trick && (
+                        <LearningBlock
+                          icon={<Lightbulb size={17} />}
+                          title="Yaad rakhne ki trick"
+                          body={topic.trick}
+                          tone="amber"
+                        />
+                      )}
                       {topic.code && (
                         <div className="mt-3 rounded-2xl border border-white/10 bg-black/30 p-4">
                           <div className="mb-2 flex items-center gap-2 text-xs font-black uppercase tracking-widest text-emerald-300">
@@ -913,7 +1040,7 @@ export default function QATrainerPage() {
           </div>
         </section>
 
-        <aside className="space-y-4 lg:sticky lg:top-5 lg:self-start">
+        <aside className="order-first space-y-4 lg:order-none lg:sticky lg:top-5 lg:self-start">
           <section className="rounded-3xl border border-white/10 bg-gradient-to-br from-violet-500/15 to-cyan-400/10 p-5">
             <div className="flex items-center gap-2">
               <div className="grid h-10 w-10 place-items-center rounded-2xl bg-white/10">
@@ -962,7 +1089,7 @@ export default function QATrainerPage() {
             </button>
           </section>
 
-          <section className="rounded-3xl border border-white/8 bg-white/[0.035] p-5">
+          <section className="hidden rounded-3xl border border-white/8 bg-white/[0.035] p-5 lg:block">
             <div className="mb-4 flex items-center gap-2">
               <BarChart3 size={18} className="text-violet-300" />
               <h2 className="font-black">How it works</h2>
