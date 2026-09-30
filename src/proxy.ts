@@ -13,6 +13,7 @@ export default auth((req) => {
   const isAdminRoute = pathname.startsWith("/admin") && pathname !== "/admin/login";
   const isAccountRoute = pathname.startsWith("/account");
   const isCheckoutRoute = pathname.startsWith("/checkout");
+  const isQaRoute = pathname === "/qa" || pathname.startsWith("/qa/");
 
   if (isAdminRoute) {
     if (!session?.user || session.user.role !== "admin") {
@@ -21,7 +22,7 @@ export default auth((req) => {
     }
   }
 
-  if ((isAccountRoute || isCheckoutRoute) && !session?.user) {
+  if ((isAccountRoute || isCheckoutRoute || isQaRoute) && !session?.user) {
     const url = new URL("/login", origin);
     url.searchParams.set("callbackUrl", pathname);
     return NextResponse.redirect(url);
@@ -31,5 +32,5 @@ export default auth((req) => {
 });
 
 export const config = {
-  matcher: ["/admin/:path*", "/account/:path*", "/checkout/:path*"],
+  matcher: ["/admin/:path*", "/account/:path*", "/checkout/:path*", "/qa/:path*"],
 };
