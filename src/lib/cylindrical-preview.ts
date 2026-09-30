@@ -22,28 +22,26 @@ export function clamp(value: number, min: number, max: number) {
 }
 
 function smoothstep(edge0: number, edge1: number, value: number) {
-  const t = clamp((value - edge0) / Math.max(0.0001, edge1 - edge0), 0, 1);
+  const t = clamp(
+    (value - edge0) / Math.max(0.0001, edge1 - edge0),
+    0,
+    1
+  );
   return t * t * (3 - 2 * t);
 }
 
-/**
- * Maps an unwarped horizontal artwork window onto a projected cylinder.
- *
- * Source positions remain linear because the full flat wrap is the single
- * source of truth. Destination positions use a sine projection so the center
- * stays visually broad while the far edges compress as they curve away.
- */
 export function buildCylindricalSlices(
   options: CylindricalMappingOptions = {}
 ): CylindricalSlice[] {
   const curvature = clamp(options.curvatureStrength ?? 1, 0, 1.5);
   const perspective = clamp(options.perspectiveStrength ?? 0, -1, 1);
   const edgeFalloff = clamp(options.edgeFalloff ?? 0.32, 0, 1);
-  const sliceCount = Math.round(clamp(options.sliceCount ?? 96, 24, 180));
+  const sliceCount = Math.round(clamp(options.sliceCount ?? 128, 48, 220));
 
-  // 1.0 maps to roughly +/-83deg of the visible cylinder. Staying below 90deg
-  // avoids zero-width edge slices while still producing convincing wrap-away.
-  const maxTheta = curvature * (Math.PI / 2) * 0.92;
+  const maxTheta = Math.min(
+    Math.PI * 0.475,
+    Math.max(0.001, curvature) * (Math.PI / 2) * 0.98
+  );
   const denom = Math.sin(maxTheta);
 
   const project = (u: number) => {
@@ -64,19 +62,24 @@ export function buildCylindricalSlices(
     const destStart = project(sourceStart);
     const destEnd = project(sourceEnd);
 
-    // Perspective is intentionally preview-only. It lets an angled mockup
-    // shift the projected band without changing the underlying flat artwork.
-    const perspectiveShift = perspective * side * 0.055;
-    const perspectiveCompression = sideAbs * Math.abs(perspective) * 0.06;
-    const curvatureCompression = sideAbs * curvature * 0.012;
+    const perspectiveShift = perspective * side * 0.045;
+    const perspectiveCompression =
+      Math.pow(sideAbs, 1.35) * Math.abs(perspective) * 0.055;
+    const cylindricalCompression =
+      Math.pow(sideAbs, 1.7) * Math.min(1.25, curvature) * 0.085;
+
     const destHeight = Math.max(
       0.82,
-      1 - perspectiveCompression - curvatureCompression
+      1 - perspectiveCompression - cylindricalCompression
     );
     const destTop = (1 - destHeight) / 2 + perspectiveShift;
 
-    const edgeFade = smoothstep(0.58, 1, sideAbs);
-    const alpha = clamp(1 - edgeFalloff * edgeFade, 0.08, 1);
+    const edgeFade = smoothstep(0.52, 1, sideAbs);
+    const alpha = clamp(
+      1 - (edgeFalloff + Math.min(0.16, curvature * 0.12)) * edgeFade,
+      0.55,
+      1
+    );
 
     slices.push({
       sourceStart,

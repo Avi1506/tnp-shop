@@ -4,6 +4,19 @@ import Image from "next/image";
 import type { MockupView } from "@/db/schema";
 import CylindricalSurfacePreview from "@/components/product/CylindricalSurfacePreview";
 
+function resolvedMockupUrl(view: MockupView) {
+  // The supplied no-handle photograph is useful as a rear/side view, but it
+  // makes the primary customer preview read like a plain cylinder. Keep the
+  // exact supplied photo assets and use the handle-right shot for Front.
+  if (
+    view.id === "front" &&
+    /\/images\/mockups\/mug-front\.jpg$/i.test(view.mockupUrl)
+  ) {
+    return "/images/mockups/mug-left.jpg";
+  }
+  return view.mockupUrl;
+}
+
 export default function CylindricalPhotoPreview({
   artworkUrl,
   view,
@@ -13,11 +26,13 @@ export default function CylindricalPhotoPreview({
   view: MockupView;
   priority?: boolean;
 }) {
+  const mockupUrl = resolvedMockupUrl(view);
+
   return (
     <>
-      {view.mockupUrl ? (
+      {mockupUrl ? (
         <Image
-          src={view.mockupUrl}
+          src={mockupUrl}
           alt={view.name}
           fill
           className="object-contain"

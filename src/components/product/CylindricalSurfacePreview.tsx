@@ -12,7 +12,8 @@ function loadImage(url: string) {
     const image = new window.Image();
     image.crossOrigin = "anonymous";
     image.onload = () => resolve(image);
-    image.onerror = () => reject(new Error(`Could not load preview image: ${url}`));
+    image.onerror = () =>
+      reject(new Error(`Could not load preview image: ${url}`));
     image.src = url;
   });
 }
@@ -70,13 +71,13 @@ export default function CylindricalSurfacePreview({
         const sx = sourceX + sourceWidth * slice.sourceStart;
         const sw = Math.max(
           1,
-          sourceWidth * (slice.sourceEnd - slice.sourceStart) + 0.75
+          sourceWidth * (slice.sourceEnd - slice.sourceStart) + 0.85
         );
 
         const dx = rect.width * slice.destStart;
         const dw = Math.max(
           0.75,
-          rect.width * (slice.destEnd - slice.destStart) + 0.8
+          rect.width * (slice.destEnd - slice.destStart) + 0.9
         );
         const dy = rect.height * slice.destTop;
         const dh = rect.height * slice.destHeight;
@@ -97,16 +98,19 @@ export default function CylindricalSurfacePreview({
 
       context.globalAlpha = 1;
 
-      // Subtle surface lighting helps the artwork read as ink following a
-      // cylinder rather than a flat sticker. It affects preview only.
-      const edgeShade = 0.13 * settings.curvatureStrength;
-      const highlight = 0.045 * settings.curvatureStrength;
+      // Preview-only cylindrical lighting. This changes the printed artwork
+      // appearance, not the supplied blank mug photograph underneath it.
+      const edgeShade = 0.22 * Math.min(1.2, settings.curvatureStrength);
+      const highlight = 0.065 * Math.min(1.2, settings.curvatureStrength);
       const shade = context.createLinearGradient(0, 0, rect.width, 0);
       shade.addColorStop(0, `rgba(0,0,0,${edgeShade})`);
-      shade.addColorStop(0.18, "rgba(0,0,0,0.035)");
-      shade.addColorStop(0.48, `rgba(255,255,255,${highlight})`);
-      shade.addColorStop(0.72, "rgba(0,0,0,0.025)");
+      shade.addColorStop(0.14, "rgba(0,0,0,0.08)");
+      shade.addColorStop(0.34, "rgba(255,255,255,0.02)");
+      shade.addColorStop(0.5, `rgba(255,255,255,${highlight})`);
+      shade.addColorStop(0.66, "rgba(255,255,255,0.02)");
+      shade.addColorStop(0.86, "rgba(0,0,0,0.08)");
       shade.addColorStop(1, `rgba(0,0,0,${edgeShade})`);
+
       context.globalCompositeOperation = "source-atop";
       context.fillStyle = shade;
       context.fillRect(0, 0, rect.width, rect.height);
@@ -150,7 +154,8 @@ export default function CylindricalSurfacePreview({
       aria-label="Curved product artwork preview"
       className="absolute inset-0 h-full w-full"
       style={{
-        mixBlendMode: settings.blendMode === "multiply" ? "multiply" : "normal",
+        mixBlendMode:
+          settings.blendMode === "multiply" ? "multiply" : "normal",
       }}
     />
   );
