@@ -25,7 +25,7 @@ import type {
 } from "@/db/schema";
 import { outputPixels, resolveProductTemplate, sourceStyle } from "@/lib/print-template";
 import Cylindrical3DPreview from "@/components/product/Cylindrical3DPreview";
-import CylindricalSurfacePreview from "@/components/product/CylindricalSurfacePreview";
+import CylindricalPhotoPreview from "@/components/product/CylindricalPhotoPreview";
 import { uploadFile } from "@/lib/client-upload";
 import { useCart } from "@/components/cart/CartContext";
 
@@ -613,6 +613,9 @@ export default function CustomizeCanvas({
   }
 
   const selectedView = template.views.find((view) => view.id === selectedViewId) ?? template.views[0];
+  const usePhotoCylindricalPreview =
+    template.printType === "cylindrical" &&
+    template.cylindrical3d?.modelRef === "procedural:mug-v1";
   const unitLabel = template.physical.unit === "cm" ? "cm" : "in";
 
   return (
@@ -741,28 +744,15 @@ export default function CustomizeCanvas({
             {template.views.map((view) => (
               <button key={view.id} type="button" onClick={() => setSelectedViewId(view.id)} className={`shrink-0 rounded-xl border p-1.5 ${selectedView?.id === view.id ? "border-navy ring-2 ring-navy/10" : "border-border"}`}>
                 <div className="relative h-20 w-20 overflow-hidden rounded-lg bg-offwhite">
-                  {view.mockupUrl ? (
+                  {template.printType === "cylindrical" ? (
+                    <CylindricalPhotoPreview
+                      artworkUrl={artworkSnapshot}
+                      view={view}
+                    />
+                  ) : view.mockupUrl ? (
                     <Image src={view.mockupUrl} alt={view.name} fill className="object-contain" />
                   ) : (
                     <div className="flex h-full items-center justify-center text-[10px] text-navy/40">{view.name}</div>
-                  )}
-                  {template.printType === "cylindrical" && artworkSnapshot && (
-                    <div
-                      className="absolute overflow-hidden"
-                      style={{
-                        left: `${view.printArea.xPct}%`,
-                        top: `${view.printArea.yPct}%`,
-                        width: `${view.printArea.widthPct}%`,
-                        height: `${view.printArea.heightPct}%`,
-                        transform: `rotate(${view.rotation ?? 0}deg)`,
-                        transformOrigin: "center",
-                      }}
-                    >
-                      <CylindricalSurfacePreview
-                        artworkUrl={artworkSnapshot}
-                        view={view}
-                      />
-                    </div>
                   )}
                 </div>
                 <span className="mt-1 block text-[10px] font-semibold text-navy">{view.name}</span>
@@ -773,11 +763,19 @@ export default function CustomizeCanvas({
           <div className="rounded-2xl border border-border bg-white p-4 sm:p-6 shadow-xs">
             <div className="relative mx-auto aspect-square w-full max-w-[520px] overflow-hidden rounded-xl bg-offwhite">
               {template.printType === "cylindrical" && selectedView && artworkSnapshot ? (
-                <Cylindrical3DPreview
-                  artworkUrl={artworkSnapshot}
-                  template={template}
-                  view={selectedView}
-                />
+                usePhotoCylindricalPreview ? (
+                  <CylindricalPhotoPreview
+                    artworkUrl={artworkSnapshot}
+                    view={selectedView}
+                    priority
+                  />
+                ) : (
+                  <Cylindrical3DPreview
+                    artworkUrl={artworkSnapshot}
+                    template={template}
+                    view={selectedView}
+                  />
+                )
               ) : (
                 <>
                   {selectedView?.mockupUrl ? (
@@ -820,7 +818,7 @@ export default function CustomizeCanvas({
               )}
             </div>
             <p className="mt-3 text-center text-xs text-navy/60">
-              {selectedView?.name} · {template.printType === "cylindrical" ? "3D wrap preview from your full flat artwork." : "preview from your saved design."}
+              {selectedView?.name} · {template.printType === "cylindrical" ? (usePhotoCylindricalPreview ? "Photo wrap preview from your full flat artwork." : "3D wrap preview from your full flat artwork.") : "preview from your saved design."}
             </p>
           </div>
 
