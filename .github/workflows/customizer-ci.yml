@@ -8,7 +8,7 @@ on:
 jobs:
   verify:
     runs-on: ubuntu-latest
-    timeout-minutes: 15
+    timeout-minutes: 20
     steps:
       - name: Checkout
         uses: actions/checkout@v4
@@ -23,3 +23,62 @@ jobs:
         run: npx tsc --noEmit
       - name: Build
         run: npm run build
+      - name: Install browser QA
+        run: |
+          npm install --no-save playwright@1.56.1
+          npx playwright install chromium
+      - name: Capture customizer QA
+        env:
+          QA_URL: "https://tnp-shop-5eaij7fsd-tnp-shop-team.vercel.app/products/chinese-cup/customize?_vercel_share=YUbBC8lBm7O3zpPNcBPVj9YvM9XOoMbA"
+        run: |
+          mkdir -p qa-output
+          cat > /tmp/customizer-qa.mjs <<'EOF'
+          import { chromium } from "playwright";
+          import path from "node:path";
+
+          const browser = await chromium.launch({ headless: true });
+          const page = await browser.newPage({ viewport: { width: 1440, height: 1100 } });
+
+          const consoleErrors = [];
+          page.on("console", (msg) => {
+            if (msg.type() === "error") consoleErrors.push(msg.text());
+          });
+          page.on("pageerror", (error) => consoleErrors.push(error.message));
+
+          await page.goto(process.env.QA_URL, { waitUntil: "networkidle", timeout: 90000 });
+
+          const input = page.locator('input[type="file"]').first();
+          await input.setInputFiles(path.resolve("public/images/mockups/test-preview.jpg"));
+          await page.waitForTimeout(5000);
+
+          await page.getByRole("button", { name: /Preview on product/i }).click();
+          await page.waitForTimeout(5000);
+
+          await page.screenshot({ path: "qa-output/desktop-front.png", fullPage: true });
+
+          await page.getByRole("button", { name: "Left", exact: true }).first().click();
+          await page.waitForTimeout(1800);
+          await page.screenshot({ path: "qa-output/desktop-left.png", fullPage: true });
+
+          await page.getByRole("button", { name: "Right", exact: true }).first().click();
+          await page.waitForTimeout(1800);
+          await page.screenshot({ path: "qa-output/desktop-right.png", fullPage: true });
+
+          await page.setViewportSize({ width: 390, height: 844 });
+          await page.getByRole("button", { name: "Front", exact: true }).first().click();
+          await page.waitForTimeout(1800);
+          await page.screenshot({ path: "qa-output/mobile-front.png", fullPage: true });
+
+          await Bun?.write?.("qa-output/console-errors.txt", consoleErrors.join("\n"));
+          await browser.close();
+          EOF
+          # Replace Bun-only optional line for Node runtime.
+          sed -i 's/await Bun?.write?.("qa-output\/console-errors.txt", consoleErrors.join("\\n"));/const fs = await import("node:fs"); fs.writeFileSync("qa-output\/console-errors.txt", consoleErrors.join("\\n"));/g' /tmp/customizer-qa.mjs
+          node /tmp/customizer-qa.mjs
+      - name: Upload QA screenshots
+        if: always()
+        uses: actions/upload-artifact@v4
+        with:
+          name: customizer-qa
+          path: qa-output/
+          if-no-files-found: warn
