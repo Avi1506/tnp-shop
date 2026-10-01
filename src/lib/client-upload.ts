@@ -167,6 +167,16 @@ export async function uploadFile(
   folder: UploadFolder,
   onProgress?: (percent: number) => void
 ): Promise<string> {
+  // Vercel preview origins are not currently present in the R2 bucket CORS
+  // allow-list. Skip the known-to-fail browser PUT there and use the same-origin
+  // staged R2 path directly. Production can continue using presigned PUT first.
+  if (
+    typeof window !== "undefined" &&
+    window.location.hostname.endsWith(".vercel.app")
+  ) {
+    return stagedServerUpload(file, folder, onProgress);
+  }
+
   const signedResponse = await fetch("/api/upload-url", {
     method: "POST",
     headers: { "Content-Type": "application/json" },
