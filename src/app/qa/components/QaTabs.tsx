@@ -5,9 +5,9 @@ import { usePathname } from "next/navigation";
 import { BookOpen, MessagesSquare, Mic2 } from "lucide-react";
 
 const tabs = [
-  { href: "/qa", label: "Questions", icon: BookOpen },
-  { href: "/qa/interview", label: "Interview Prep", icon: MessagesSquare },
-  { href: "/qa/speaking", label: "English Speaking", icon: Mic2 },
+  { href: "/qa", label: "Questions", shortLabel: "Questions", icon: BookOpen },
+  { href: "/qa/interview", label: "Interview Prep", shortLabel: "Interview", icon: MessagesSquare },
+  { href: "/qa/speaking", label: "English Speaking", shortLabel: "Speaking", icon: Mic2 },
 ];
 
 export function QaTabs() {
@@ -34,7 +34,8 @@ export function QaTabs() {
               }`}
             >
               <Icon size={16} className="shrink-0" />
-              <span className="min-w-0 truncate">{tab.label}</span>
+              <span className="min-w-0 truncate sm:hidden">{tab.shortLabel}</span>
+              <span className="hidden min-w-0 truncate sm:inline">{tab.label}</span>
             </Link>
           );
         })}
