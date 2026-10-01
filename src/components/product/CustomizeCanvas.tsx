@@ -354,7 +354,7 @@ export default function CustomizeCanvas({
       }
 
       const safe = getSafeArea();
-      const scale = Math.max(
+      const scale = Math.min(
         safe.width / Math.max(1, image.width ?? 1),
         safe.height / Math.max(1, image.height ?? 1)
       );

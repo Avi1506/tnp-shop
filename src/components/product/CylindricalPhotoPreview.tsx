@@ -98,12 +98,12 @@ export default function CylindricalPhotoPreview({
       const sourceHeight = (artwork.height * view.source.heightPct) / 100;
 
       const strips = Math.max(220, Math.min(520, Math.round(printWidth * 1.6)));
-      const thetaMax = (80 * Math.PI) / 180;
+      const thetaMax = (87 * Math.PI) / 180;
       const sinMax = Math.sin(thetaMax);
       const tilt = viewPerspective(view);
 
       ctx.save();
-      ctx.globalCompositeOperation = "multiply";
+      ctx.globalCompositeOperation = "source-over";
 
       for (let index = 0; index < strips; index += 1) {
         const t0 = index / strips;
@@ -125,7 +125,7 @@ export default function CylindricalPhotoPreview({
 
         const facing = Math.max(0, Math.cos(theta));
         const edge = 1 - facing;
-        const heightLoss = printHeight * 0.035 * edge;
+        const heightLoss = printHeight * 0.055 * edge;
         const side = Math.sin(theta);
         const dy =
           printY +
@@ -134,13 +134,13 @@ export default function CylindricalPhotoPreview({
         const dh = printHeight - heightLoss;
 
         const brightness = clamp(
-          0.58 + 0.44 * Math.pow(facing, 0.5),
-          0.56,
+          0.9 + 0.1 * Math.pow(facing, 0.45),
+          0.9,
           1
         );
         const alpha = clamp(
-          0.7 + 0.3 * Math.pow(facing, 0.35),
-          0.7,
+          0.42 + 0.58 * Math.pow(facing, 0.24),
+          0.42,
           1
         );
 
@@ -163,6 +163,24 @@ export default function CylindricalPhotoPreview({
       ctx.globalAlpha = 1;
       ctx.restore();
       ctx.globalCompositeOperation = "source-over";
+
+      const edgeShade = ctx.createLinearGradient(
+        printX,
+        0,
+        printX + printWidth,
+        0
+      );
+      edgeShade.addColorStop(0, "rgba(0,0,0,0.12)");
+      edgeShade.addColorStop(0.08, "rgba(0,0,0,0.035)");
+      edgeShade.addColorStop(0.22, "rgba(0,0,0,0)");
+      edgeShade.addColorStop(0.78, "rgba(0,0,0,0)");
+      edgeShade.addColorStop(0.92, "rgba(0,0,0,0.035)");
+      edgeShade.addColorStop(1, "rgba(0,0,0,0.12)");
+      ctx.save();
+      ctx.globalCompositeOperation = "multiply";
+      ctx.fillStyle = edgeShade;
+      ctx.fillRect(printX, printY, printWidth, printHeight);
+      ctx.restore();
     };
 
     const jobs: Promise<unknown>[] = [
