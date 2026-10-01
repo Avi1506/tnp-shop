@@ -619,246 +619,627 @@ export default function CustomizeCanvas({
   const unitLabel = template.physical.unit === "cm" ? "cm" : "in";
 
   return (
-    <div className="space-y-6">
-      {mode === "design" ? (
-        <div className="grid grid-cols-1 lg:grid-cols-[minmax(0,1fr)_360px] gap-6 items-start">
-          <div className="space-y-4">
-            <div className="flex flex-wrap gap-2 text-[11px] font-semibold text-navy/70">
-              <span className="rounded-full border border-border bg-white px-3 py-1">
-                {template.printType === "cylindrical" ? "Full Wrap" : "Print Area"}
-              </span>
-              <span className="rounded-full border border-border bg-white px-3 py-1">
-                {template.physical.width} × {template.physical.height} {unitLabel}
-              </span>
-              <span className="rounded-full border border-border bg-white px-3 py-1">
-                {template.physical.dpi} DPI · {output.widthPx} × {output.heightPx}px
-              </span>
-            </div>
-
-            <div className="rounded-2xl border border-border bg-white p-3 sm:p-5 shadow-xs">
-              <div
-                className="relative mx-auto overflow-hidden rounded-xl border border-border bg-[#FAF9F6] [&_.canvas-container]:!w-full [&_.canvas-container]:!h-full [&_canvas]:!w-full [&_canvas]:!h-full"
-                style={{ maxWidth: dimensions.width, aspectRatio: `${dimensions.width}/${dimensions.height}` }}
-              >
-                <canvas ref={canvasElRef} className="touch-none" />
-              </div>
-              {template.printType === "cylindrical" && (
-                <div className="mt-2 grid grid-cols-3 text-center text-[10px] font-medium text-navy/50">
-                  <span>Left</span><span className="text-teal">Front</span><span>Right</span>
-                </div>
-              )}
-            </div>
-
-            {qualityWarnings.map((warning) => (
-              <div key={warning} className="rounded-xl border border-amber-300 bg-amber-50 px-4 py-3 text-xs text-amber-900">
-                {warning}
-              </div>
-            ))}
-
-            <div className="flex flex-wrap justify-center gap-2">
-              <button type="button" onClick={removeSelected} disabled={!hasSelection} className="rounded-xl border border-border bg-white px-3 py-2 text-xs font-semibold text-navy disabled:opacity-30">
-                <Trash2 size={13} className="inline mr-1" /> Delete
-              </button>
-              <button type="button" onClick={resetCanvas} className="rounded-xl border border-border bg-white px-3 py-2 text-xs font-semibold text-navy">
-                <RotateCcw size={13} className="inline mr-1" /> Reset
-              </button>
-              <button type="button" onClick={showPreview} className="rounded-xl bg-navy px-4 py-2 text-xs font-semibold text-white">
-                <Eye size={13} className="inline mr-1" /> Preview
-              </button>
-            </div>
+    <div className="mx-auto max-w-[1440px] space-y-4 pb-24 lg:pb-8">
+      <div className="flex flex-col gap-3 rounded-2xl border border-border bg-white px-4 py-4 shadow-xs sm:flex-row sm:items-center sm:justify-between sm:px-5">
+        <div>
+          <p className="text-[11px] font-bold uppercase tracking-[0.18em] text-gold">
+            Customize
+          </p>
+          <div className="mt-1 flex flex-wrap items-baseline gap-x-3 gap-y-1">
+            <h2 className="font-display text-xl font-semibold text-navy sm:text-2xl">
+              {name}
+            </h2>
+            <span className="text-sm font-bold text-red">₹{price}</span>
           </div>
+          <p className="mt-1 text-xs text-navy/55">
+            {template.printType === "cylindrical"
+              ? "Design one full wrap. Front, Left and Right previews use the same artwork."
+              : "Add your photo or text, adjust it, then review the product preview."}
+          </p>
+        </div>
 
-          <div className="space-y-5 rounded-2xl border border-border bg-white p-5 shadow-xs">
-            <div>
-              <h2 className="font-display text-xl font-semibold text-navy">{name}</h2>
-              <p className="font-bold text-red">Starting ₹{price}</p>
-            </div>
+        <div className="flex items-center gap-2 text-[11px] font-semibold">
+          <span
+            className={`rounded-full px-3 py-1.5 ${
+              mode === "design"
+                ? "bg-navy text-white"
+                : "bg-offwhite text-navy/55"
+            }`}
+          >
+            1 · Design
+          </span>
+          <span className="h-px w-5 bg-border" />
+          <span
+            className={`rounded-full px-3 py-1.5 ${
+              mode === "preview"
+                ? "bg-navy text-white"
+                : "bg-offwhite text-navy/55"
+            }`}
+          >
+            2 · Preview
+          </span>
+          <span className="h-px w-5 bg-border" />
+          <span className="rounded-full bg-offwhite px-3 py-1.5 text-navy/55">
+            3 · Cart
+          </span>
+        </div>
+      </div>
 
-            {config.fields.imageUpload && (
-              <div>
-                <input ref={fileInputRef} type="file" accept="image/jpeg,image/png,image/webp" className="hidden" onChange={handleFileChange} />
-                <button type="button" onClick={() => fileInputRef.current?.click()} disabled={uploading} className="w-full rounded-xl border-2 border-dashed border-gold/60 px-4 py-5 text-center text-sm font-semibold text-navy disabled:opacity-60">
-                  {uploading ? <Loader2 size={20} className="mx-auto mb-1 animate-spin text-gold" /> : <Upload size={20} className="mx-auto mb-1 text-gold" />}
-                  {hasUploadedPhoto ? "Replace Photo" : "Upload Photo"}
-                  {uploading && <span className="mt-1 block text-[11px] text-navy/50">{uploadProgress}% uploaded</span>}
-                </button>
-                {hasUploadedPhoto && (
-                  <div className="mt-2 grid grid-cols-2 gap-2">
-                    <button type="button" onClick={fillImage} className="rounded-lg border border-border py-2 text-xs font-semibold text-navy">
-                      Fill
-                    </button>
-                    <button type="button" onClick={fitImage} className="rounded-lg border border-border py-2 text-xs font-semibold text-navy">
-                      <Maximize2 size={12} className="inline mr-1" /> Fit
-                    </button>
-                    <button type="button" onClick={() => zoomImage(0.9)} className="rounded-lg border border-border py-2 text-xs font-semibold text-navy">
-                      Zoom −
-                    </button>
-                    <button type="button" onClick={() => zoomImage(1.1)} className="rounded-lg border border-border py-2 text-xs font-semibold text-navy">
-                      Zoom +
-                    </button>
-                    <button type="button" onClick={() => rotateImage(-15)} className="rounded-lg border border-border py-2 text-xs font-semibold text-navy">
-                      Rotate ↶
-                    </button>
-                    <button type="button" onClick={() => rotateImage(15)} className="rounded-lg border border-border py-2 text-xs font-semibold text-navy">
-                      Rotate ↷
-                    </button>
+      {mode === "design" ? (
+        <div className="grid grid-cols-1 gap-5 lg:grid-cols-[minmax(0,1fr)_390px] lg:items-start">
+          <section className="min-w-0 space-y-4">
+            <div className="overflow-hidden rounded-3xl border border-border bg-white shadow-xs">
+              <div className="flex flex-col gap-3 border-b border-border px-4 py-4 sm:flex-row sm:items-center sm:justify-between sm:px-5">
+                <div>
+                  <p className="text-[10px] font-bold uppercase tracking-[0.18em] text-teal">
+                    Design area
+                  </p>
+                  <h3 className="mt-0.5 font-display text-lg font-semibold text-navy">
+                    Arrange your artwork
+                  </h3>
+                  <p className="mt-0.5 text-xs text-navy/50">
+                    Dashed line = recommended safe print area.
+                  </p>
+                </div>
+
+                <div className="flex flex-wrap gap-2 text-[10px] font-semibold text-navy/65">
+                  <span className="rounded-full border border-border bg-offwhite px-2.5 py-1">
+                    {template.printType === "cylindrical" ? "Full wrap" : "Print area"}
+                  </span>
+                  <span className="rounded-full border border-border bg-offwhite px-2.5 py-1">
+                    {template.physical.width} × {template.physical.height} {unitLabel}
+                  </span>
+                  <span className="rounded-full border border-border bg-offwhite px-2.5 py-1">
+                    {output.widthPx} × {output.heightPx}px
+                  </span>
+                </div>
+              </div>
+
+              <div className="bg-[#F7F6F2] p-3 sm:p-6">
+                <div
+                  className="relative mx-auto overflow-hidden rounded-2xl border border-border bg-white shadow-sm [&_.canvas-container]:!h-full [&_.canvas-container]:!w-full [&_canvas]:!h-full [&_canvas]:!w-full"
+                  style={{
+                    maxWidth: dimensions.width,
+                    aspectRatio: `${dimensions.width}/${dimensions.height}`,
+                  }}
+                >
+                  <canvas ref={canvasElRef} className="touch-none" />
+                </div>
+
+                {template.printType === "cylindrical" && (
+                  <div className="mx-auto mt-2 grid max-w-[640px] grid-cols-3 text-center text-[10px] font-semibold text-navy/40">
+                    <span>Left wrap</span>
+                    <span className="text-teal">Front</span>
+                    <span>Right wrap</span>
                   </div>
                 )}
               </div>
+
+              <div className="border-t border-border bg-white px-3 py-3 sm:px-5">
+                <div className="flex flex-wrap items-center justify-center gap-2">
+                  {hasUploadedPhoto && (
+                    <>
+                      <button
+                        type="button"
+                        onClick={fillImage}
+                        className="rounded-xl border border-border bg-white px-3 py-2 text-xs font-semibold text-navy hover:bg-offwhite"
+                      >
+                        Fill area
+                      </button>
+                      <button
+                        type="button"
+                        onClick={fitImage}
+                        className="rounded-xl border border-border bg-white px-3 py-2 text-xs font-semibold text-navy hover:bg-offwhite"
+                      >
+                        <Maximize2 size={13} className="mr-1 inline" />
+                        Fit
+                      </button>
+                      <button
+                        type="button"
+                        onClick={() => zoomImage(0.9)}
+                        className="rounded-xl border border-border bg-white px-3 py-2 text-xs font-semibold text-navy hover:bg-offwhite"
+                      >
+                        Zoom −
+                      </button>
+                      <button
+                        type="button"
+                        onClick={() => zoomImage(1.1)}
+                        className="rounded-xl border border-border bg-white px-3 py-2 text-xs font-semibold text-navy hover:bg-offwhite"
+                      >
+                        Zoom +
+                      </button>
+                      <button
+                        type="button"
+                        onClick={() => rotateImage(-15)}
+                        className="rounded-xl border border-border bg-white px-3 py-2 text-xs font-semibold text-navy hover:bg-offwhite"
+                      >
+                        Rotate ↶
+                      </button>
+                      <button
+                        type="button"
+                        onClick={() => rotateImage(15)}
+                        className="rounded-xl border border-border bg-white px-3 py-2 text-xs font-semibold text-navy hover:bg-offwhite"
+                      >
+                        Rotate ↷
+                      </button>
+                    </>
+                  )}
+
+                  <button
+                    type="button"
+                    onClick={removeSelected}
+                    disabled={!hasSelection}
+                    className="rounded-xl border border-border bg-white px-3 py-2 text-xs font-semibold text-navy hover:bg-offwhite disabled:opacity-30"
+                  >
+                    <Trash2 size={13} className="mr-1 inline" />
+                    Delete
+                  </button>
+                  <button
+                    type="button"
+                    onClick={resetCanvas}
+                    className="rounded-xl border border-border bg-white px-3 py-2 text-xs font-semibold text-navy hover:bg-offwhite"
+                  >
+                    <RotateCcw size={13} className="mr-1 inline" />
+                    Reset
+                  </button>
+                </div>
+              </div>
+            </div>
+
+            {qualityWarnings.map((warning) => (
+              <div
+                key={warning}
+                className="rounded-2xl border border-amber-300 bg-amber-50 px-4 py-3 text-xs text-amber-900"
+              >
+                {warning}
+              </div>
+            ))}
+          </section>
+
+          <aside className="space-y-4 lg:sticky lg:top-24">
+            {config.fields.imageUpload && (
+              <section className="rounded-2xl border border-border bg-white p-4 shadow-xs sm:p-5">
+                <div className="mb-3 flex items-center gap-3">
+                  <div className="flex h-9 w-9 items-center justify-center rounded-xl bg-gold/15 text-gold">
+                    <Upload size={17} />
+                  </div>
+                  <div>
+                    <h3 className="text-sm font-bold text-navy">Your photo / artwork</h3>
+                    <p className="text-[11px] text-navy/50">
+                      JPG, PNG or WebP · up to 10 MB
+                    </p>
+                  </div>
+                </div>
+
+                <input
+                  ref={fileInputRef}
+                  type="file"
+                  accept="image/jpeg,image/png,image/webp"
+                  className="hidden"
+                  onChange={handleFileChange}
+                />
+
+                <button
+                  type="button"
+                  onClick={() => fileInputRef.current?.click()}
+                  disabled={uploading}
+                  className="w-full rounded-2xl border-2 border-dashed border-gold/55 bg-gold/[0.04] px-4 py-5 text-center text-sm font-bold text-navy transition hover:bg-gold/[0.08] disabled:opacity-60"
+                >
+                  {uploading ? (
+                    <Loader2 size={21} className="mx-auto mb-2 animate-spin text-gold" />
+                  ) : (
+                    <Upload size={21} className="mx-auto mb-2 text-gold" />
+                  )}
+                  {hasUploadedPhoto ? "Replace artwork" : "Upload artwork"}
+                  <span className="mt-1 block text-[11px] font-normal text-navy/45">
+                    {uploading
+                      ? `${uploadProgress}% uploaded`
+                      : "You can reposition it in the design area"}
+                  </span>
+                </button>
+              </section>
             )}
 
             {config.fields.text && (
-              <div>
-                <p className="mb-2 text-xs font-semibold uppercase tracking-wide text-navy/60"><Type size={13} className="inline mr-1" /> Add Text</p>
-                <div className="flex gap-2">
-                  <input value={textValue} onChange={(event) => setTextValue(event.target.value)} maxLength={config.fields.maxTextLength} className="min-w-0 flex-1 rounded-lg border border-border px-3 py-2 text-sm outline-none focus:border-gold" placeholder="Your text" />
-                  <button type="button" onClick={addText} className="rounded-lg bg-navy px-3 text-xs font-semibold text-white"><ImagePlus size={14} /></button>
+              <section
+                id="customizer-text-tool"
+                className="rounded-2xl border border-border bg-white p-4 shadow-xs sm:p-5"
+              >
+                <div className="mb-3 flex items-center gap-3">
+                  <div className="flex h-9 w-9 items-center justify-center rounded-xl bg-teal/10 text-teal">
+                    <Type size={17} />
+                  </div>
+                  <div>
+                    <h3 className="text-sm font-bold text-navy">Add text</h3>
+                    <p className="text-[11px] text-navy/50">
+                      Add a name, message or short line
+                    </p>
+                  </div>
                 </div>
+
+                <div className="flex gap-2">
+                  <input
+                    value={textValue}
+                    onChange={(event) => setTextValue(event.target.value)}
+                    maxLength={config.fields.maxTextLength}
+                    className="min-w-0 flex-1 rounded-xl border border-border px-3 py-2.5 text-sm outline-none focus:border-gold"
+                    placeholder="Type your text"
+                  />
+                  <button
+                    type="button"
+                    onClick={addText}
+                    className="rounded-xl bg-navy px-4 text-xs font-bold text-white"
+                  >
+                    Add
+                  </button>
+                </div>
+
                 {config.fields.fontChoice && (
-                  <div className="mt-3 flex flex-wrap gap-1.5">
-                    {config.fields.fonts.map((option) => (
-                      <button key={option} type="button" onClick={() => { setFont(option); updateSelectedText({ font: option }); }} className={`rounded-full border px-2.5 py-1 text-[11px] ${font === option ? "border-navy bg-navy text-white" : "border-border text-navy"}`}>
+                  <div className="mt-3">
+                    <p className="mb-2 text-[10px] font-bold uppercase tracking-wide text-navy/45">
+                      Font
+                    </p>
+                    <div className="flex flex-wrap gap-1.5">
+                      {config.fields.fonts.map((option) => (
+                        <button
+                          key={option}
+                          type="button"
+                          onClick={() => {
+                            setFont(option);
+                            updateSelectedText({ font: option });
+                          }}
+                          className={`rounded-full border px-2.5 py-1.5 text-[11px] ${
+                            font === option
+                              ? "border-navy bg-navy text-white"
+                              : "border-border text-navy"
+                          }`}
+                        >
+                          {option}
+                        </button>
+                      ))}
+                    </div>
+                  </div>
+                )}
+
+                {config.fields.textColorChoice && (
+                  <div className="mt-3">
+                    <p className="mb-2 text-[10px] font-bold uppercase tracking-wide text-navy/45">
+                      Text colour
+                    </p>
+                    <div className="flex flex-wrap gap-2">
+                      {config.fields.colors.map((color) => (
+                        <button
+                          key={color}
+                          type="button"
+                          aria-label={`Use ${color}`}
+                          onClick={() => {
+                            setTextColor(color);
+                            updateSelectedText({ color });
+                          }}
+                          className={`h-8 w-8 rounded-full border-2 ${
+                            textColor === color
+                              ? "border-gold ring-2 ring-gold/20"
+                              : "border-white ring-1 ring-border"
+                          }`}
+                          style={{ backgroundColor: color }}
+                        />
+                      ))}
+                    </div>
+                  </div>
+                )}
+              </section>
+            )}
+
+            <section className="rounded-2xl border border-border bg-white p-4 shadow-xs sm:p-5">
+              <div className="flex items-start gap-3">
+                <ShieldCheck size={18} className="mt-0.5 shrink-0 text-teal" />
+                <div className="text-[11px] leading-relaxed text-navy/55">
+                  <p className="font-semibold text-navy">Print-safe workflow</p>
+                  <p className="mt-0.5">
+                    Original upload and editable design state are kept with your order.
+                  </p>
+                </div>
+              </div>
+
+              <button
+                type="button"
+                onClick={showPreview}
+                className="mt-4 w-full rounded-full bg-navy py-3.5 text-sm font-bold text-white shadow-sm transition hover:bg-navy/90"
+              >
+                <Eye size={15} className="mr-2 inline" />
+                Preview on product
+              </button>
+            </section>
+          </aside>
+        </div>
+      ) : (
+        <div className="grid grid-cols-1 gap-5 lg:grid-cols-[minmax(0,1fr)_370px] lg:items-start">
+          <section className="overflow-hidden rounded-3xl border border-border bg-white shadow-xs">
+            <div className="flex flex-col gap-3 border-b border-border px-4 py-4 sm:flex-row sm:items-center sm:justify-between sm:px-5">
+              <div>
+                <p className="text-[10px] font-bold uppercase tracking-[0.18em] text-teal">
+                  Product preview
+                </p>
+                <h3 className="mt-0.5 font-display text-lg font-semibold text-navy">
+                  Check every visible side
+                </h3>
+              </div>
+
+              <div className="flex gap-2 overflow-x-auto pb-1">
+                {template.views.map((view) => (
+                  <button
+                    key={view.id}
+                    type="button"
+                    onClick={() => setSelectedViewId(view.id)}
+                    className={`shrink-0 rounded-full border px-3 py-1.5 text-xs font-bold transition ${
+                      selectedView?.id === view.id
+                        ? "border-navy bg-navy text-white"
+                        : "border-border bg-white text-navy hover:bg-offwhite"
+                    }`}
+                  >
+                    {view.name}
+                  </button>
+                ))}
+              </div>
+            </div>
+
+            <div className="grid gap-3 bg-[#F7F6F2] p-3 sm:p-5 lg:grid-cols-[92px_minmax(0,1fr)]">
+              <div className="order-2 flex gap-2 overflow-x-auto lg:order-1 lg:flex-col">
+                {template.views.map((view) => (
+                  <button
+                    key={view.id}
+                    type="button"
+                    onClick={() => setSelectedViewId(view.id)}
+                    className={`shrink-0 rounded-2xl border bg-white p-1.5 transition ${
+                      selectedView?.id === view.id
+                        ? "border-navy ring-2 ring-navy/10"
+                        : "border-border"
+                    }`}
+                  >
+                    <div className="relative h-[72px] w-[72px] overflow-hidden rounded-xl bg-offwhite">
+                      {template.printType === "cylindrical" ? (
+                        <CylindricalPhotoPreview
+                          artworkUrl={artworkSnapshot}
+                          view={view}
+                          template={template}
+                        />
+                      ) : view.mockupUrl ? (
+                        <Image
+                          src={view.mockupUrl}
+                          alt={view.name}
+                          fill
+                          className="object-contain"
+                        />
+                      ) : (
+                        <div className="flex h-full items-center justify-center text-[10px] text-navy/40">
+                          {view.name}
+                        </div>
+                      )}
+                    </div>
+                    <span className="mt-1 block text-[10px] font-bold text-navy">
+                      {view.name}
+                    </span>
+                  </button>
+                ))}
+              </div>
+
+              <div className="order-1 flex min-h-[360px] items-center justify-center overflow-hidden rounded-2xl border border-border bg-white lg:order-2 lg:min-h-[560px]">
+                <div className="relative aspect-square w-full max-w-[620px]">
+                  {template.printType === "cylindrical" &&
+                  selectedView &&
+                  artworkSnapshot ? (
+                    usePhotoCylindricalPreview ? (
+                      <CylindricalPhotoPreview
+                        artworkUrl={artworkSnapshot}
+                        view={selectedView}
+                        template={template}
+                        priority
+                      />
+                    ) : (
+                      <Cylindrical3DPreview
+                        artworkUrl={artworkSnapshot}
+                        template={template}
+                        view={selectedView}
+                      />
+                    )
+                  ) : (
+                    <>
+                      {selectedView?.mockupUrl ? (
+                        <Image
+                          src={selectedView.mockupUrl}
+                          alt={selectedView.name}
+                          fill
+                          className="object-contain"
+                          priority
+                        />
+                      ) : null}
+
+                      {selectedView && artworkSnapshot && (
+                        <div
+                          className="absolute"
+                          style={{
+                            left: `${selectedView.printArea.xPct}%`,
+                            top: `${selectedView.printArea.yPct}%`,
+                            width: `${selectedView.printArea.widthPct}%`,
+                            height: `${selectedView.printArea.heightPct}%`,
+                            transform: `rotate(${selectedView.rotation ?? 0}deg)`,
+                            transformOrigin: "center",
+                            ...previewMaskStyle(template),
+                          }}
+                        >
+                          <div className="relative h-full w-full overflow-hidden">
+                            {/* eslint-disable-next-line @next/next/no-img-element */}
+                            <img
+                              src={artworkSnapshot}
+                              alt="Your design preview"
+                              className="absolute max-w-none"
+                              style={{
+                                ...sourceStyle(selectedView.source),
+                                objectFit: "fill",
+                              }}
+                            />
+                          </div>
+                        </div>
+                      )}
+                    </>
+                  )}
+                </div>
+              </div>
+            </div>
+
+            <div className="flex items-center justify-between border-t border-border px-4 py-3 text-[11px] text-navy/50 sm:px-5">
+              <span>
+                {selectedView?.name} ·{" "}
+                {template.printType === "cylindrical"
+                  ? usePhotoCylindricalPreview
+                    ? "Real-photo wrap preview"
+                    : "3D wrap preview"
+                  : "Product preview"}
+              </span>
+              <button
+                type="button"
+                onClick={() => setMode("design")}
+                className="font-bold text-navy"
+              >
+                ← Edit design
+              </button>
+            </div>
+          </section>
+
+          <aside className="space-y-4 lg:sticky lg:top-24">
+            <section className="rounded-2xl border border-border bg-white p-5 shadow-xs">
+              <p className="text-[10px] font-bold uppercase tracking-[0.18em] text-gold">
+                Final review
+              </p>
+              <h3 className="mt-1 font-display text-xl font-semibold text-navy">
+                Ready to order?
+              </h3>
+              <p className="mt-1 text-xs leading-relaxed text-navy/50">
+                Check the artwork position on every available view before approval.
+              </p>
+
+              {config.fields.sizeChoice && config.fields.sizes.length > 0 && (
+                <div className="mt-5">
+                  <p className="mb-2 text-[10px] font-bold uppercase tracking-wide text-navy/45">
+                    Size
+                  </p>
+                  <div className="flex flex-wrap gap-2">
+                    {config.fields.sizes.map((option) => (
+                      <button
+                        key={option}
+                        type="button"
+                        onClick={() => setSize(option)}
+                        className={`rounded-xl border px-3 py-2 text-xs font-bold ${
+                          size === option
+                            ? "border-navy bg-navy text-white"
+                            : "border-border text-navy"
+                        }`}
+                      >
                         {option}
                       </button>
                     ))}
                   </div>
-                )}
-                {config.fields.textColorChoice && (
-                  <div className="mt-3 flex gap-2">
-                    {config.fields.colors.map((color) => (
-                      <button key={color} type="button" aria-label={`Use ${color}`} onClick={() => { setTextColor(color); updateSelectedText({ color }); }} className={`h-7 w-7 rounded-full border-2 ${textColor === color ? "border-gold" : "border-transparent"}`} style={{ backgroundColor: color }} />
-                    ))}
-                  </div>
-                )}
-              </div>
-            )}
+                </div>
+              )}
 
-            <button type="button" onClick={showPreview} className="w-full rounded-full bg-navy py-3.5 text-sm font-semibold text-white">
+              {config.fields.specialInstructions && (
+                <div className="mt-4">
+                  <label className="mb-2 block text-[10px] font-bold uppercase tracking-wide text-navy/45">
+                    Special instructions
+                  </label>
+                  <textarea
+                    rows={3}
+                    value={instructions}
+                    onChange={(event) => setInstructions(event.target.value)}
+                    placeholder="Optional note for production"
+                    className="w-full resize-none rounded-xl border border-border px-3 py-2.5 text-xs outline-none focus:border-gold"
+                  />
+                </div>
+              )}
+
+              <div className="mt-4 rounded-xl bg-offwhite p-3 text-[11px] leading-relaxed text-navy/65">
+                <p>
+                  <CheckCircle2 size={13} className="mr-1 inline text-teal" />
+                  Print file: {output.widthPx} × {output.heightPx}px at{" "}
+                  {template.physical.dpi} DPI
+                </p>
+                <p className="mt-1">
+                  <ShieldCheck size={13} className="mr-1 inline text-teal" />
+                  Original upload + editable design state saved with order
+                </p>
+              </div>
+
+              <label className="mt-4 flex items-start gap-2 rounded-xl border border-border bg-white p-3 text-xs leading-relaxed text-navy/80">
+                <input
+                  type="checkbox"
+                  checked={approved}
+                  onChange={(event) => setApproved(event.target.checked)}
+                  className="mt-0.5 accent-gold"
+                />
+                <span>I have reviewed and approved this design for production.</span>
+              </label>
+
+              <button
+                type="button"
+                onClick={handleAddToCart}
+                disabled={submitting || !approved || uploading}
+                className="mt-4 w-full rounded-full bg-gold py-4 font-bold text-navy-dark shadow-sm transition hover:brightness-95 disabled:opacity-50"
+              >
+                {submitting ? (
+                  <>
+                    <Loader2 size={16} className="mr-2 inline animate-spin" />
+                    Saving design...
+                  </>
+                ) : (
+                  "Add to Cart"
+                )}
+              </button>
+
+              <button
+                type="button"
+                onClick={() => setMode("design")}
+                className="mt-3 w-full py-2 text-xs font-bold text-navy/55"
+              >
+                ← Back to editing
+              </button>
+            </section>
+          </aside>
+        </div>
+      )}
+
+      {mode === "design" && (
+        <div className="fixed inset-x-0 bottom-0 z-50 border-t border-border bg-white/95 px-3 py-2 shadow-[0_-8px_30px_rgba(27,42,74,0.08)] backdrop-blur lg:hidden">
+          <div className="mx-auto grid max-w-lg grid-cols-3 gap-2">
+            <button
+              type="button"
+              onClick={() => fileInputRef.current?.click()}
+              disabled={!config.fields.imageUpload || uploading}
+              className="flex flex-col items-center justify-center rounded-xl px-2 py-2 text-[10px] font-bold text-navy disabled:opacity-35"
+            >
+              <Upload size={18} className="mb-0.5" />
+              Photo
+            </button>
+            <button
+              type="button"
+              onClick={() =>
+                document
+                  .getElementById("customizer-text-tool")
+                  ?.scrollIntoView({ behavior: "smooth", block: "center" })
+              }
+              disabled={!config.fields.text}
+              className="flex flex-col items-center justify-center rounded-xl px-2 py-2 text-[10px] font-bold text-navy disabled:opacity-35"
+            >
+              <Type size={18} className="mb-0.5" />
+              Text
+            </button>
+            <button
+              type="button"
+              onClick={showPreview}
+              className="flex flex-col items-center justify-center rounded-xl bg-navy px-2 py-2 text-[10px] font-bold text-white"
+            >
+              <Eye size={18} className="mb-0.5" />
               Preview
             </button>
-          </div>
-        </div>
-      ) : (
-        <div className="grid grid-cols-1 lg:grid-cols-[110px_minmax(0,1fr)_360px] gap-5 items-start">
-          <div className="flex gap-2 overflow-x-auto lg:flex-col">
-            {template.views.map((view) => (
-              <button key={view.id} type="button" onClick={() => setSelectedViewId(view.id)} className={`shrink-0 rounded-xl border p-1.5 ${selectedView?.id === view.id ? "border-navy ring-2 ring-navy/10" : "border-border"}`}>
-                <div className="relative h-20 w-20 overflow-hidden rounded-lg bg-offwhite">
-                  {template.printType === "cylindrical" ? (
-                    <CylindricalPhotoPreview
-                      artworkUrl={artworkSnapshot}
-                      view={view}
-                      template={template}
-                    />
-                  ) : view.mockupUrl ? (
-                    <Image src={view.mockupUrl} alt={view.name} fill className="object-contain" />
-                  ) : (
-                    <div className="flex h-full items-center justify-center text-[10px] text-navy/40">{view.name}</div>
-                  )}
-                </div>
-                <span className="mt-1 block text-[10px] font-semibold text-navy">{view.name}</span>
-              </button>
-            ))}
-          </div>
-
-          <div className="rounded-2xl border border-border bg-white p-4 sm:p-6 shadow-xs">
-            <div className="relative mx-auto aspect-square w-full max-w-[520px] overflow-hidden rounded-xl bg-offwhite">
-              {template.printType === "cylindrical" && selectedView && artworkSnapshot ? (
-                usePhotoCylindricalPreview ? (
-                  <CylindricalPhotoPreview
-                    artworkUrl={artworkSnapshot}
-                    view={selectedView}
-                    template={template}
-                    priority
-                  />
-                ) : (
-                  <Cylindrical3DPreview
-                    artworkUrl={artworkSnapshot}
-                    template={template}
-                    view={selectedView}
-                  />
-                )
-              ) : (
-                <>
-                  {selectedView?.mockupUrl ? (
-                    <Image
-                      src={selectedView.mockupUrl}
-                      alt={selectedView.name}
-                      fill
-                      className="object-contain"
-                      priority
-                    />
-                  ) : null}
-                  {selectedView && artworkSnapshot && (
-                    <div
-                      className="absolute"
-                      style={{
-                        left: `${selectedView.printArea.xPct}%`,
-                        top: `${selectedView.printArea.yPct}%`,
-                        width: `${selectedView.printArea.widthPct}%`,
-                        height: `${selectedView.printArea.heightPct}%`,
-                        transform: `rotate(${selectedView.rotation ?? 0}deg)`,
-                        transformOrigin: "center",
-                        ...previewMaskStyle(template),
-                      }}
-                    >
-                      <div className="relative h-full w-full overflow-hidden">
-                        {/* eslint-disable-next-line @next/next/no-img-element */}
-                        <img
-                          src={artworkSnapshot}
-                          alt="Your design preview"
-                          className="absolute max-w-none"
-                          style={{
-                            ...sourceStyle(selectedView.source),
-                            objectFit: "fill",
-                          }}
-                        />
-                      </div>
-                    </div>
-                  )}
-                </>
-              )}
-            </div>
-            <p className="mt-3 text-center text-xs text-navy/60">
-              {selectedView?.name} · {template.printType === "cylindrical" ? (usePhotoCylindricalPreview ? "Real-photo cylindrical wrap preview." : "3D wrap preview from your full flat artwork.") : "preview from your saved design."}
-            </p>
-          </div>
-
-          <div className="space-y-5 rounded-2xl border border-border bg-white p-5 shadow-xs">
-            <div>
-              <p className="text-xs font-semibold uppercase tracking-widest text-gold">Final Review</p>
-              <h2 className="font-display text-xl font-semibold text-navy">Check your design</h2>
-            </div>
-
-            {config.fields.sizeChoice && config.fields.sizes.length > 0 && (
-              <div>
-                <p className="mb-2 text-xs font-semibold uppercase tracking-wide text-navy/60">Size</p>
-                <div className="flex flex-wrap gap-2">
-                  {config.fields.sizes.map((option) => (
-                    <button key={option} type="button" onClick={() => setSize(option)} className={`rounded-lg border px-3 py-1.5 text-xs font-semibold ${size === option ? "border-navy bg-navy text-white" : "border-border text-navy"}`}>{option}</button>
-                  ))}
-                </div>
-              </div>
-            )}
-
-            {config.fields.specialInstructions && (
-              <textarea rows={3} value={instructions} onChange={(event) => setInstructions(event.target.value)} placeholder="Special instructions (optional)" className="w-full resize-none rounded-lg border border-border px-3 py-2 text-xs outline-none focus:border-gold" />
-            )}
-
-            <div className="rounded-xl bg-offwhite p-3 text-xs text-navy/70">
-              <p><CheckCircle2 size={13} className="inline mr-1 text-teal" /> Print output: {output.widthPx} × {output.heightPx}px at {template.physical.dpi} DPI</p>
-              <p className="mt-1"><ShieldCheck size={13} className="inline mr-1 text-teal" /> Original upload + editable design state are saved with the order.</p>
-            </div>
-
-            <label className="flex items-start gap-2 rounded-xl border border-border bg-offwhite p-3 text-xs text-navy/80">
-              <input type="checkbox" checked={approved} onChange={(event) => setApproved(event.target.checked)} className="mt-0.5 accent-gold" />
-              I have reviewed and approved this design for production.
-            </label>
-
-            <button type="button" onClick={handleAddToCart} disabled={submitting || !approved || uploading} className="w-full rounded-full bg-gold py-4 font-semibold text-navy-dark disabled:opacity-50">
-              {submitting ? <><Loader2 size={16} className="inline mr-2 animate-spin" />Saving design...</> : "Add to Cart"}
-            </button>
-            <button type="button" onClick={() => setMode("design")} className="w-full text-xs font-semibold text-navy/60">← Edit design</button>
           </div>
         </div>
       )}
