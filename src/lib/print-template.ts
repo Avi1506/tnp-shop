@@ -142,9 +142,11 @@ export function resolveProductTemplate(
     };
 
     const mugMockups: Record<string, string> = {
-      front: "/images/mockups/mug-front.jpg",
+      // Use the supplied real mug photos. Front/right keep the handle visible,
+      // matching the physical-product reference instead of a handle-less cylinder.
+      front: "/images/mockups/mug-left.jpg",
       left: "/images/mockups/mug-handle-left.jpg",
-      right: "/images/mockups/mug-handle-right.jpg",
+      right: "/images/mockups/mug-left.jpg",
     };
 
     resolved.views = resolved.views.map((view) => {

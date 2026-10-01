@@ -142,9 +142,14 @@ export default function MugArtwork3DLayer({
               });
 
               const printSurface = new THREE.Mesh(geometry, material);
-              printSurface.rotation.y = THREE.MathUtils.degToRad(
+              // The customer-facing view name follows the visible artwork side.
+              // Rotate the texture surface opposite to the stored camera/product
+              // convention so Left shows the LEFT wrap and Right shows RIGHT.
+              const configuredAngle =
                 view.angleDeg ??
-                  (view.id === "left" ? -65 : view.id === "right" ? 65 : 0)
+                (view.id === "left" ? -65 : view.id === "right" ? 65 : 0);
+              printSurface.rotation.y = THREE.MathUtils.degToRad(
+                -configuredAngle
               );
               scene.add(printSurface);
 
