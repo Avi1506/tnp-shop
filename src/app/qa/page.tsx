@@ -22,6 +22,7 @@ import {
   XCircle,
 } from "lucide-react";
 import { ANSWERS } from "./data";
+import { QaTabs } from "./components/QaTabs";
 
 type QuizVariant = {
   question: string;
@@ -1025,9 +1026,11 @@ export default function QATrainerPage() {
         </div>
       </div>
 
+      <QaTabs />
+
       <div className="mx-auto grid max-w-6xl gap-6 px-4 py-7 sm:px-6 lg:grid-cols-[1fr_320px]">
         <section className="lg:order-first">
-          <div className="sticky top-0 z-30 mb-5 space-y-3 border-b border-white/5 bg-slate-950/95 py-3 backdrop-blur-xl">
+          <div className="sticky top-16 z-30 mb-5 space-y-3 border-b border-white/5 bg-slate-950/95 py-3 backdrop-blur-xl">
             <div className="w-full">
               <label className="mb-1.5 block px-1 text-[10px] font-black uppercase tracking-[0.16em] text-white/35">
                 Category
