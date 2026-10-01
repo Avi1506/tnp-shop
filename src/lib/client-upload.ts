@@ -15,14 +15,7 @@ type SignedUploadResponse = {
   error?: string;
 };
 
-type MultipartInitResponse = {
-  key?: string;
-  uploadId?: string;
-  publicUrl?: string;
-  error?: string;
-};
-
-const CHUNK_BYTES = 1536 * 1024;
+const SAFE_SERVER_FALLBACK_BYTES = 3 * 1024 * 1024;
 
 function xhrUpload(
   url: string,
@@ -49,95 +42,66 @@ function xhrUpload(
   });
 }
 
-async function multipartUpload(
+function xhrSmallServerUpload(
+  file: File,
+  folder: UploadFolder,
+  onProgress?: (percent: number) => void
+): Promise<string> {
+  return new Promise((resolve, reject) => {
+    const form = new FormData();
+    form.append("file", file);
+    form.append("folder", folder);
+
+    const xhr = new XMLHttpRequest();
+    xhr.open("POST", "/api/upload");
+    xhr.upload.onprogress = (event) => {
+      if (!event.lengthComputable || !onProgress) return;
+      onProgress(Math.round((event.loaded / event.total) * 100));
+    };
+    xhr.onload = () => {
+      let payload: { url?: string; error?: string } = {};
+      try {
+        payload = JSON.parse(xhr.responseText || "{}") as {
+          url?: string;
+          error?: string;
+        };
+      } catch {
+        // handled below
+      }
+
+      if (xhr.status >= 200 && xhr.status < 300 && payload.url) {
+        onProgress?.(100);
+        resolve(payload.url);
+        return;
+      }
+
+      reject(
+        new Error(
+          payload.error ||
+            (xhr.status === 413
+              ? "Image is too large for the backup upload path."
+              : "Could not upload image. Please retry.")
+        )
+      );
+    };
+    xhr.onerror = () =>
+      reject(new Error("Could not upload image. Please retry."));
+    xhr.send(form);
+  });
+}
+
+async function safeFallbackUpload(
   file: File,
   folder: UploadFolder,
   onProgress?: (percent: number) => void
 ) {
-  const initResponse = await fetch("/api/upload-multipart", {
-    method: "POST",
-    headers: { "Content-Type": "application/json" },
-    body: JSON.stringify({
-      action: "init",
-      contentType: file.type,
-      contentLength: file.size,
-      folder,
-    }),
-  });
-
-  const init = (await initResponse.json().catch(() => ({}))) as MultipartInitResponse;
-  if (!initResponse.ok || !init.key || !init.uploadId || !init.publicUrl) {
-    throw new Error(init.error || "Could not upload image. Please retry.");
+  if (file.size <= SAFE_SERVER_FALLBACK_BYTES) {
+    return xhrSmallServerUpload(file, folder, onProgress);
   }
 
-  const parts: Array<{ ETag: string; PartNumber: number }> = [];
-  const partCount = Math.ceil(file.size / CHUNK_BYTES);
-
-  try {
-    for (let index = 0; index < partCount; index += 1) {
-      const start = index * CHUNK_BYTES;
-      const end = Math.min(file.size, start + CHUNK_BYTES);
-      const chunk = file.slice(start, end);
-
-      const params = new URLSearchParams({
-        key: init.key,
-        uploadId: init.uploadId,
-        partNumber: String(index + 1),
-        contentType: file.type,
-      });
-
-      const response = await fetch(`/api/upload-multipart?${params.toString()}`, {
-        method: "PUT",
-        headers: { "Content-Type": "application/octet-stream" },
-        body: chunk,
-      });
-
-      const uploaded = (await response.json().catch(() => ({}))) as {
-        ETag?: string;
-        PartNumber?: number;
-        error?: string;
-      };
-
-      if (!response.ok || !uploaded.ETag || !uploaded.PartNumber) {
-        throw new Error(uploaded.error || "Could not upload image. Please retry.");
-      }
-
-      parts.push({ ETag: uploaded.ETag, PartNumber: uploaded.PartNumber });
-      onProgress?.(Math.round(((index + 1) / partCount) * 95));
-    }
-
-    const completeResponse = await fetch("/api/upload-multipart", {
-      method: "POST",
-      headers: { "Content-Type": "application/json" },
-      body: JSON.stringify({
-        action: "complete",
-        key: init.key,
-        uploadId: init.uploadId,
-        parts,
-      }),
-    });
-
-    const completed = (await completeResponse.json().catch(() => ({}))) as {
-      publicUrl?: string;
-      error?: string;
-    };
-
-    if (!completeResponse.ok || !completed.publicUrl) {
-      throw new Error(completed.error || "Could not upload image. Please retry.");
-    }
-
-    onProgress?.(100);
-    return completed.publicUrl;
-  } catch (error) {
-    const params = new URLSearchParams({
-      key: init.key,
-      uploadId: init.uploadId,
-    });
-    void fetch(`/api/upload-multipart?${params.toString()}`, {
-      method: "DELETE",
-    }).catch(() => undefined);
-    throw error;
-  }
+  throw new Error(
+    "Large image upload needs direct storage access. Please retry after storage connection is restored."
+  );
 }
 
 export async function uploadFile(
@@ -173,15 +137,15 @@ export async function uploadFile(
       onProgress?.(100);
       return signed.publicUrl;
     } catch {
-      // Preview deployments can be blocked by R2 CORS even when signing succeeds.
-      // Fall back to same-origin chunked multipart upload so supported files do
-      // not hit Vercel's single-request multipart body limit.
-      return multipartUpload(file, folder, onProgress);
+      // Small files can safely use the same-origin server fallback.
+      // Large files must remain direct-to-R2; proxying them through Vercel
+      // risks the platform request-body limit.
+      return safeFallbackUpload(file, folder, onProgress);
     }
   }
 
   if (signedResponse.ok && signed.fallbackToLegacy) {
-    return multipartUpload(file, folder, onProgress);
+    return safeFallbackUpload(file, folder, onProgress);
   }
 
   throw new Error(signed.error || "Could not prepare upload. Please retry.");

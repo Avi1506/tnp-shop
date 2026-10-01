@@ -108,6 +108,8 @@ export default function CustomizeCanvas({
   const dimensions = useMemo(() => editorSize(template), [template]);
   const output = useMemo(() => outputPixels(template), [template]);
   const canvasElRef = useRef<HTMLCanvasElement>(null);
+  const editorViewportRef = useRef<HTMLDivElement>(null);
+  const customizerRef = useRef<HTMLDivElement>(null);
   const fabricRef = useRef<fabric.Canvas | null>(null);
   const fileInputRef = useRef<HTMLInputElement>(null);
   const guideRefs = useRef<fabric.FabricObject[]>([]);
@@ -134,12 +136,29 @@ export default function CustomizeCanvas({
   const [qualityWarnings, setQualityWarnings] = useState<string[]>(
     initialCustomization?.qualityWarnings ?? []
   );
+  const [editorScale, setEditorScale] = useState(1);
   const [uploading, setUploading] = useState(false);
   const [uploadProgress, setUploadProgress] = useState(0);
   const [submitting, setSubmitting] = useState(false);
 
   const { addLine } = useCart();
   const router = useRouter();
+
+  useEffect(() => {
+    const viewport = editorViewportRef.current;
+    if (!viewport) return;
+
+    const update = () => {
+      const width = viewport.clientWidth;
+      if (!width) return;
+      setEditorScale(Math.min(1, width / dimensions.width));
+    };
+
+    update();
+    const observer = new ResizeObserver(update);
+    observer.observe(viewport);
+    return () => observer.disconnect();
+  }, [dimensions.width]);
 
   const getSafeArea = useCallback(() => {
     const { safeArea } = template;
@@ -319,8 +338,10 @@ export default function CustomizeCanvas({
       bitmap.close();
       setQualityWarnings(nextWarnings);
 
+      const url = await uploadFile(file, "customizations", setUploadProgress);
+
       const localUrl = URL.createObjectURL(file);
-      const image = await fabric.FabricImage.fromURL(localUrl, { crossOrigin: "anonymous" });
+      const image = await fabric.FabricImage.fromURL(localUrl);
       URL.revokeObjectURL(localUrl);
 
       const canvas = fabricRef.current;
@@ -355,7 +376,6 @@ export default function CustomizeCanvas({
       canvas.requestRenderAll();
       setHasUploadedPhoto(true);
 
-      const url = await uploadFile(file, "customizations", setUploadProgress);
       customImage.uploadUrl = url;
       setUploadedUrls((current) =>
         config.fields.multipleImages ? [...current, url] : [url]
@@ -503,10 +523,25 @@ export default function CustomizeCanvas({
     canvas.requestRenderAll();
   }
 
+  function scrollCustomizerIntoView() {
+    requestAnimationFrame(() => {
+      customizerRef.current?.scrollIntoView({
+        behavior: "smooth",
+        block: "start",
+      });
+    });
+  }
+
   function showPreview() {
     const data = captureArtwork(2);
     if (data) setArtworkSnapshot(data);
     setMode("preview");
+    scrollCustomizerIntoView();
+  }
+
+  function showDesign() {
+    setMode("design");
+    scrollCustomizerIntoView();
   }
 
   async function dataUrlToFile(dataUrl: string, filename: string) {
@@ -618,7 +653,7 @@ export default function CustomizeCanvas({
   const unitLabel = template.physical.unit === "cm" ? "cm" : "in";
 
   return (
-    <div className="mx-auto max-w-[1440px] space-y-4 pb-24 lg:pb-8">
+    <div ref={customizerRef} className="mx-auto max-w-[1440px] scroll-mt-20 space-y-4 pb-24 lg:pb-8">
       <div className="flex flex-col gap-3 rounded-2xl border border-border bg-white px-4 py-4 shadow-xs sm:flex-row sm:items-center sm:justify-between sm:px-5">
         <div>
           <p className="text-[11px] font-bold uppercase tracking-[0.18em] text-gold">
@@ -696,13 +731,24 @@ export default function CustomizeCanvas({
 
               <div className="bg-[#F7F6F2] p-3 sm:p-6">
                 <div
-                  className="relative mx-auto overflow-hidden rounded-2xl border border-border bg-white shadow-sm [&_.canvas-container]:!h-full [&_.canvas-container]:!w-full [&_canvas]:!h-full [&_canvas]:!w-full"
+                  ref={editorViewportRef}
+                  className="relative mx-auto w-full overflow-hidden rounded-2xl border border-border bg-white shadow-sm"
                   style={{
                     maxWidth: dimensions.width,
-                    aspectRatio: `${dimensions.width}/${dimensions.height}`,
+                    height: Math.max(1, dimensions.height * editorScale),
                   }}
                 >
-                  <canvas ref={canvasElRef} className="touch-none" />
+                  <div
+                    className="absolute left-1/2 top-0"
+                    style={{
+                      width: dimensions.width,
+                      height: dimensions.height,
+                      transform: `translateX(-50%) scale(${editorScale})`,
+                      transformOrigin: "top center",
+                    }}
+                  >
+                    <canvas ref={canvasElRef} className="touch-none" />
+                  </div>
                 </div>
 
                 {template.printType === "cylindrical" && (
@@ -1097,7 +1143,7 @@ export default function CustomizeCanvas({
               </span>
               <button
                 type="button"
-                onClick={() => setMode("design")}
+                onClick={showDesign}
                 className="font-bold text-navy"
               >
                 ← Edit design
@@ -1196,7 +1242,7 @@ export default function CustomizeCanvas({
 
               <button
                 type="button"
-                onClick={() => setMode("design")}
+                onClick={showDesign}
                 className="mt-3 w-full py-2 text-xs font-bold text-navy/55"
               >
                 ← Back to editing
