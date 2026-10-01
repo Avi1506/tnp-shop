@@ -6,6 +6,8 @@ import { seleniumWaitsAndExceptions, testNgAnswers } from "./selenium-more";
 import { frameworkAnswers, devOpsAnswers } from "./framework-devops";
 import { apiSqlAnswers } from "./api-sql";
 import { realTimeAnswers } from "./real-time";
+import { javascriptAnswers } from "./javascript";
+import { playwrightAnswers } from "./playwright";
 
 export type StudyAnswer = {
   easy: string;
@@ -25,6 +27,8 @@ export const ANSWERS: Record<number, StudyAnswer> = {
   ...devOpsAnswers,
   ...apiSqlAnswers,
   ...realTimeAnswers,
+  ...javascriptAnswers,
+  ...playwrightAnswers,
 };
 
 export type ExtraQuestion = {
