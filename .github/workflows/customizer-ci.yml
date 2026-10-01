@@ -30,7 +30,7 @@ jobs:
           QA_URL: "https://tnp-shop-5eaij7fsd-tnp-shop-team.vercel.app/products/chinese-cup/customize?_vercel_share=YUbBC8lBm7O3zpPNcBPVj9YvM9XOoMbA"
         run: |
           mkdir -p qa-output
-          cat > /tmp/customizer-qa.mjs <<'EOF'
+          cat > customizer-qa.mjs <<'EOF'
           import { chromium } from "playwright";
           import path from "node:path";
           import fs from "node:fs";
@@ -71,7 +71,7 @@ jobs:
           fs.writeFileSync("qa-output/console-errors.txt", consoleErrors.join("\n"));
           await browser.close();
           EOF
-          node /tmp/customizer-qa.mjs
+          node customizer-qa.mjs
       - name: Upload QA screenshots
         if: always()
         uses: actions/upload-artifact@v4
