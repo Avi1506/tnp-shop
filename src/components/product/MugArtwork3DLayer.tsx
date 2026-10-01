@@ -14,7 +14,13 @@ type RendererLike = {
   dispose(): void;
 };
 
-type Disposable = { dispose(): void };
+type TextureLike = {
+  colorSpace: unknown;
+  wrapS: unknown;
+  wrapT: unknown;
+  anisotropy: number;
+  dispose(): void;
+};
 
 type Props = {
   artworkUrl: string;
@@ -56,9 +62,7 @@ export default function MugArtwork3DLayer({
     let disposed = false;
     let renderer: RendererLike | null = null;
     let resizeObserver: ResizeObserver | null = null;
-    let textureRef: Disposable | null = null;
-    let geometryRef: Disposable | null = null;
-    let materialRef: Disposable | null = null;
+    let texture: TextureLike | null = null;
 
     void import("three")
       .then((THREE) => {
@@ -67,8 +71,6 @@ export default function MugArtwork3DLayer({
         try {
           const scene = new THREE.Scene();
 
-          // A transparent camera-facing 3D cylinder is calibrated to the real
-          // mug photograph underneath. The mug itself is never regenerated.
           const camera = new THREE.PerspectiveCamera(28, 1, 0.1, 50);
           camera.position.set(0, 0.48, 4.65);
           camera.lookAt(0, 0, 0);
@@ -79,8 +81,8 @@ export default function MugArtwork3DLayer({
             premultipliedAlpha: true,
             powerPreference: "high-performance",
           }) as RendererLike;
-          renderer = activeRenderer;
 
+          renderer = activeRenderer;
           activeRenderer.outputColorSpace = THREE.SRGBColorSpace;
           activeRenderer.setClearColor(0x000000, 0);
           activeRenderer.domElement.style.display = "block";
@@ -97,9 +99,6 @@ export default function MugArtwork3DLayer({
           const thetaOffset = THREE.MathUtils.degToRad(
             config.wrapOffsetDeg ?? 0
           );
-
-          // Three CylinderGeometry starts at camera-facing +Z when theta=0.
-          // The full Fabric wrap is therefore centered on the visible front.
           const thetaStart = -thetaLength / 2 + thetaOffset;
 
           const geometry = new THREE.CylinderGeometry(
@@ -112,38 +111,35 @@ export default function MugArtwork3DLayer({
             thetaStart,
             thetaLength
           );
-          geometryRef = geometry;
 
-          const loader = new THREE.TextureLoader();
-          loader.setCrossOrigin("anonymous");
-          loader.load(
+          const textureLoader = new THREE.TextureLoader();
+          textureLoader.setCrossOrigin("anonymous");
+
+          textureLoader.load(
             artworkUrl,
-            (texture) => {
+            (loadedTexture: TextureLike) => {
               if (disposed) {
-                texture.dispose();
+                loadedTexture.dispose();
+                geometry.dispose();
                 return;
               }
 
-              textureRef = texture;
-              texture.colorSpace = THREE.SRGBColorSpace;
-              texture.wrapS = THREE.ClampToEdgeWrapping;
-              texture.wrapT = THREE.ClampToEdgeWrapping;
-              texture.anisotropy = Math.min(
+              texture = loadedTexture;
+              loadedTexture.colorSpace = THREE.SRGBColorSpace;
+              loadedTexture.wrapS = THREE.ClampToEdgeWrapping;
+              loadedTexture.wrapT = THREE.ClampToEdgeWrapping;
+              loadedTexture.anisotropy = Math.min(
                 8,
                 activeRenderer.capabilities.getMaxAnisotropy()
               );
 
-              // Basic material intentionally preserves uploaded photo colours.
-              // The actual ceramic highlights/shadows remain in the real photo.
               const material = new THREE.MeshBasicMaterial({
-                map: texture,
+                map: loadedTexture,
                 transparent: true,
                 opacity: 0.985,
                 side: THREE.FrontSide,
                 depthWrite: false,
-                alphaTest: 0.002,
               });
-              materialRef = material;
 
               const printSurface = new THREE.Mesh(geometry, material);
               printSurface.rotation.y = THREE.MathUtils.degToRad(
@@ -162,6 +158,7 @@ export default function MugArtwork3DLayer({
                   Math.min(window.devicePixelRatio || 1, 1.75)
                 );
                 renderer.setSize(rect.width, rect.height, false);
+
                 camera.aspect = rect.width / rect.height;
                 camera.updateProjectionMatrix();
                 renderer.render(scene, camera);
@@ -173,6 +170,7 @@ export default function MugArtwork3DLayer({
             },
             undefined,
             () => {
+              geometry.dispose();
               if (!disposed) onUnavailable();
             }
           );
@@ -187,9 +185,7 @@ export default function MugArtwork3DLayer({
     return () => {
       disposed = true;
       resizeObserver?.disconnect();
-      textureRef?.dispose();
-      geometryRef?.dispose();
-      materialRef?.dispose();
+      texture?.dispose();
 
       if (renderer) {
         renderer.dispose();
