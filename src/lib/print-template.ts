@@ -141,13 +141,20 @@ export function resolveProductTemplate(
       },
     };
 
+    const mugMockups: Record<string, string> = {
+      front: "/images/mockups/mug-front.jpg",
+      left: "/images/mockups/mug-handle-left.jpg",
+      right: "/images/mockups/mug-handle-right.jpg",
+    };
+
     resolved.views = resolved.views.map((view) => {
       const calibration = photoCalibration[view.id];
       return calibration
         ? {
             ...view,
             ...calibration,
-            blendMode: "multiply" as const,
+            mockupUrl: mugMockups[view.id] ?? view.mockupUrl,
+            blendMode: "normal" as const,
           }
         : view;
     });

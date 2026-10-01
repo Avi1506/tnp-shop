@@ -25,6 +25,7 @@ import type {
 import { outputPixels, resolveProductTemplate, sourceStyle } from "@/lib/print-template";
 import Cylindrical3DPreview from "@/components/product/Cylindrical3DPreview";
 import CylindricalPhotoPreview from "@/components/product/CylindricalPhotoPreview";
+import MugPhoto3DPreview from "@/components/product/MugPhoto3DPreview";
 import { uploadFile } from "@/lib/client-upload";
 import { useCart } from "@/components/cart/CartContext";
 
@@ -354,10 +355,16 @@ export default function CustomizeCanvas({
       }
 
       const safe = getSafeArea();
-      const scale = Math.min(
-        safe.width / Math.max(1, image.width ?? 1),
-        safe.height / Math.max(1, image.height ?? 1)
-      );
+      const scale =
+        template.printType === "cylindrical"
+          ? Math.max(
+              safe.width / Math.max(1, image.width ?? 1),
+              safe.height / Math.max(1, image.height ?? 1)
+            )
+          : Math.min(
+              safe.width / Math.max(1, image.width ?? 1),
+              safe.height / Math.max(1, image.height ?? 1)
+            );
       image.set({
         left: safe.left + safe.width / 2,
         top: safe.top + safe.height / 2,
@@ -647,7 +654,7 @@ export default function CustomizeCanvas({
   }
 
   const selectedView = template.views.find((view) => view.id === selectedViewId) ?? template.views[0];
-  const usePhotoCylindricalPreview =
+  const useMugPhoto3DPreview =
     template.printType === "cylindrical" &&
     template.cylindrical3d?.modelRef === "procedural:mug-v1";
   const unitLabel = template.physical.unit === "cm" ? "cm" : "in";
@@ -1073,11 +1080,11 @@ export default function CustomizeCanvas({
                   {template.printType === "cylindrical" &&
                   selectedView &&
                   artworkSnapshot ? (
-                    usePhotoCylindricalPreview ? (
-                      <CylindricalPhotoPreview
+                    useMugPhoto3DPreview ? (
+                      <MugPhoto3DPreview
                         artworkUrl={artworkSnapshot}
-                        view={selectedView}
                         template={template}
+                        view={selectedView}
                         priority
                       />
                     ) : (
@@ -1136,8 +1143,8 @@ export default function CustomizeCanvas({
               <span>
                 {selectedView?.name} ·{" "}
                 {template.printType === "cylindrical"
-                  ? usePhotoCylindricalPreview
-                    ? "Real-photo wrap preview"
+                  ? useMugPhoto3DPreview
+                    ? "True 3D UV wrap on real mug photo"
                     : "3D wrap preview"
                   : "Product preview"}
               </span>
