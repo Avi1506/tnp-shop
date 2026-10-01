@@ -15,7 +15,14 @@ type SignedUploadResponse = {
   error?: string;
 };
 
-const SAFE_SERVER_FALLBACK_BYTES = 3 * 1024 * 1024;
+type StagingInitResponse = {
+  key?: string;
+  sessionId?: string;
+  partCount?: number;
+  chunkBytes?: number;
+  publicUrl?: string;
+  error?: string;
+};
 
 function xhrUpload(
   url: string,
@@ -26,82 +33,133 @@ function xhrUpload(
   return new Promise((resolve, reject) => {
     const xhr = new XMLHttpRequest();
     xhr.open("PUT", url);
+
     Object.entries(headers).forEach(([key, value]) =>
       xhr.setRequestHeader(key, value)
     );
+
     xhr.upload.onprogress = (event) => {
       if (!event.lengthComputable || !onProgress) return;
       onProgress(Math.round((event.loaded / event.total) * 100));
     };
+
     xhr.onload = () => {
-      if (xhr.status >= 200 && xhr.status < 300) resolve();
-      else reject(new Error("Direct upload to storage failed."));
+      if (xhr.status >= 200 && xhr.status < 300) {
+        resolve();
+        return;
+      }
+
+      reject(new Error("Direct upload to storage failed."));
     };
-    xhr.onerror = () => reject(new Error("Direct upload to storage failed."));
+
+    xhr.onerror = () =>
+      reject(new Error("Direct upload to storage failed."));
+
     xhr.send(body);
   });
 }
 
-function xhrSmallServerUpload(
-  file: File,
-  folder: UploadFolder,
-  onProgress?: (percent: number) => void
-): Promise<string> {
-  return new Promise((resolve, reject) => {
-    const form = new FormData();
-    form.append("file", file);
-    form.append("folder", folder);
-
-    const xhr = new XMLHttpRequest();
-    xhr.open("POST", "/api/upload");
-    xhr.upload.onprogress = (event) => {
-      if (!event.lengthComputable || !onProgress) return;
-      onProgress(Math.round((event.loaded / event.total) * 100));
-    };
-    xhr.onload = () => {
-      let payload: { url?: string; error?: string } = {};
-      try {
-        payload = JSON.parse(xhr.responseText || "{}") as {
-          url?: string;
-          error?: string;
-        };
-      } catch {
-        // handled below
-      }
-
-      if (xhr.status >= 200 && xhr.status < 300 && payload.url) {
-        onProgress?.(100);
-        resolve(payload.url);
-        return;
-      }
-
-      reject(
-        new Error(
-          payload.error ||
-            (xhr.status === 413
-              ? "Image is too large for the backup upload path."
-              : "Could not upload image. Please retry.")
-        )
-      );
-    };
-    xhr.onerror = () =>
-      reject(new Error("Could not upload image. Please retry."));
-    xhr.send(form);
-  });
-}
-
-async function safeFallbackUpload(
+async function stagedServerUpload(
   file: File,
   folder: UploadFolder,
   onProgress?: (percent: number) => void
 ) {
-  if (file.size <= SAFE_SERVER_FALLBACK_BYTES) {
-    return xhrSmallServerUpload(file, folder, onProgress);
+  const initResponse = await fetch("/api/upload-multipart", {
+    method: "POST",
+    headers: { "Content-Type": "application/json" },
+    body: JSON.stringify({
+      action: "init",
+      contentType: file.type,
+      contentLength: file.size,
+      folder,
+    }),
+  });
+
+  const init = (await initResponse.json().catch(() => ({}))) as StagingInitResponse;
+
+  if (
+    !initResponse.ok ||
+    !init.key ||
+    !init.sessionId ||
+    !init.partCount ||
+    !init.chunkBytes ||
+    !init.publicUrl
+  ) {
+    throw new Error(init.error || "Could not upload image. Please retry.");
   }
 
-  throw new Error(
-    "Large image upload needs direct storage access. Please retry after storage connection is restored."
-  );
+  try {
+    for (let index = 0; index < init.partCount; index += 1) {
+      const start = index * init.chunkBytes;
+      const end = Math.min(file.size, start + init.chunkBytes);
+      const chunk = file.slice(start, end);
+
+      const params = new URLSearchParams({
+        sessionId: init.sessionId,
+        partNumber: String(index + 1),
+        partCount: String(init.partCount),
+      });
+
+      const response = await fetch(
+        `/api/upload-multipart?${params.toString()}`,
+        {
+          method: "PUT",
+          headers: { "Content-Type": "application/octet-stream" },
+          body: chunk,
+        }
+      );
+
+      const result = (await response.json().catch(() => ({}))) as {
+        error?: string;
+      };
+
+      if (!response.ok) {
+        throw new Error(result.error || "Could not upload image. Please retry.");
+      }
+
+      onProgress?.(
+        Math.min(94, Math.round(((index + 1) / init.partCount) * 94))
+      );
+    }
+
+    const completeResponse = await fetch("/api/upload-multipart", {
+      method: "POST",
+      headers: { "Content-Type": "application/json" },
+      body: JSON.stringify({
+        action: "complete",
+        key: init.key,
+        sessionId: init.sessionId,
+        contentType: file.type,
+        contentLength: file.size,
+        partCount: init.partCount,
+      }),
+    });
+
+    const complete = (await completeResponse.json().catch(() => ({}))) as {
+      publicUrl?: string;
+      error?: string;
+    };
+
+    if (!completeResponse.ok || !complete.publicUrl) {
+      throw new Error(
+        complete.error || "Could not upload image. Please retry."
+      );
+    }
+
+    onProgress?.(100);
+    return complete.publicUrl;
+  } catch (error) {
+    const params = new URLSearchParams({
+      sessionId: init.sessionId,
+      partCount: String(init.partCount),
+    });
+
+    void fetch(`/api/upload-multipart?${params.toString()}`, {
+      method: "DELETE",
+    }).catch(() => undefined);
+
+    throw error;
+  }
 }
 
 export async function uploadFile(
@@ -137,16 +195,15 @@ export async function uploadFile(
       onProgress?.(100);
       return signed.publicUrl;
     } catch {
-      // Small files can safely use the same-origin server fallback.
-      // Large files must remain direct-to-R2; proxying them through Vercel
-      // risks the platform request-body limit.
-      return safeFallbackUpload(file, folder, onProgress);
+      return stagedServerUpload(file, folder, onProgress);
     }
   }
 
   if (signedResponse.ok && signed.fallbackToLegacy) {
-    return safeFallbackUpload(file, folder, onProgress);
+    return stagedServerUpload(file, folder, onProgress);
   }
 
-  throw new Error(signed.error || "Could not prepare upload. Please retry.");
+  throw new Error(
+    signed.error || "Could not prepare upload. Please retry."
+  );
 }
