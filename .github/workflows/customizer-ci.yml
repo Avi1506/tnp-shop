@@ -27,7 +27,7 @@ jobs:
           npx playwright install chromium
       - name: Capture customizer QA
         env:
-          QA_URL: "https://tnp-shop-1jav088gq-tnp-shop-team.vercel.app/products/chinese-cup/customize?_vercel_share=EAmdoH7l7iO644zDlkdllhrHOy11kONC"
+          QA_URL: "https://tnp-shop-pz57busv0-tnp-shop-team.vercel.app/products/chinese-cup/customize?_vercel_share=GWV5DcrYhnLVgkArjUJuN1z5NtTYi2En"
         run: |
           mkdir -p qa-output
           cat > customizer-qa.mjs <<'EOF'
