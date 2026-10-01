@@ -7,7 +7,6 @@ import Image from "next/image";
 import {
   CheckCircle2,
   Eye,
-  ImagePlus,
   Loader2,
   Maximize2,
   RotateCcw,
