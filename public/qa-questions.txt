@@ -312,3 +312,146 @@ Yes. For your **Automation Testing interview preparation**, these are the main q
 For your **3.8 years Automation Testing profile**, questions **258–285 are especially important** because interviewers will expect more than definitions—they'll ask about what you actually do in your project. 
 
 I recommend we prepare these **one by one exactly like we are doing now**: **simple explanation → code/example → interview answer → follow-up questions**.
+
+# JavaScript + Playwright Interview Questions
+
+### JavaScript Basics
+286. What is JavaScript?
+287. What is the difference between var, let, and const?
+288. What are primitive data types in JavaScript?
+289. What is the difference between undefined and null?
+290. What is the difference between == and ===?
+291. What is a function in JavaScript?
+292. What is an arrow function?
+293. What is scope in JavaScript?
+294. What is block scope?
+295. What is hoisting?
+296. What is a closure?
+297. What is a callback function?
+298. What is an array in JavaScript?
+299. What is an object in JavaScript?
+300. What does map() do?
+301. What does filter() do?
+302. What does reduce() do?
+303. What is the difference between forEach() and map()?
+304. What is the difference between find() and filter()?
+305. What is the difference between some() and every()?
+306. What is destructuring?
+307. What is the spread operator and rest operator?
+308. What are template literals?
+309. What is optional chaining?
+310. What is the nullish coalescing operator?
+
+### JavaScript Async & Modern JS
+311. What are truthy and falsy values?
+312. What is NaN?
+313. What does typeof do?
+314. What is the difference between parseInt() and Number()?
+315. How does setTimeout() work?
+316. What is a Promise in JavaScript?
+317. What does async mean?
+318. What does await do?
+319. How do you handle Promise errors?
+320. What is Promise.all()?
+321. What is Promise.allSettled()?
+322. What is Promise.race()?
+323. What is the event loop?
+324. Synchronous vs asynchronous JavaScript?
+325. How do try, catch, and finally work in JavaScript?
+326. What does throw do?
+327. What are JSON.stringify() and JSON.parse()?
+328. What is the difference between shallow copy and deep copy?
+329. How do object references work in JavaScript?
+330. Can you modify an object declared with const?
+331. What are default parameters?
+332. What are JavaScript modules?
+333. CommonJS vs ES Modules?
+334. What is the difference between microtasks and timer tasks?
+335. Why is async/await important in Playwright?
+
+### Playwright Basics
+336. What is Playwright?
+337. Why do we use Playwright for automation?
+338. Playwright library vs @playwright/test?
+339. What is the difference between Browser, BrowserContext, and Page?
+340. What is BrowserContext?
+341. What is Page in Playwright?
+342. How do you install Playwright?
+343. How do you write a basic Playwright test?
+344. What is playwright.config.ts?
+345. What is baseURL in Playwright?
+346. What are projects in Playwright?
+347. How do you run Playwright tests on Chromium, Firefox, and WebKit?
+348. Headless vs headed mode?
+349. What are timeouts in Playwright?
+350. What are beforeEach, afterEach, beforeAll, and afterAll hooks?
+351. What is test.describe()?
+352. What are test.skip(), test.fixme(), and test.only()?
+353. What are annotations in Playwright?
+354. How do you group or tag Playwright tests?
+355. What are common Playwright CLI commands/options?
+356. What are workers in Playwright?
+357. How does parallel execution work in Playwright?
+358. What is fullyParallel in Playwright?
+359. What are retries in Playwright?
+360. What are reporters in Playwright?
+
+### Playwright Locators, Actions & Waits
+361. What is a Locator in Playwright?
+362. What is getByRole()?
+363. What is getByText()?
+364. What is getByLabel()?
+365. What is getByPlaceholder()?
+366. What is getByTestId()?
+367. Which locator strategy do you prefer in Playwright?
+368. What is page.locator()?
+369. How do you filter a locator?
+370. What are nth(), first(), and last()?
+371. What is auto-waiting in Playwright?
+372. What are web-first assertions?
+373. Why should we avoid waitForTimeout()?
+374. What is locator.waitFor()?
+375. How do you wait for a URL change?
+376. How do you click and enter text in Playwright?
+377. fill() vs pressSequentially()?
+378. How do you handle dropdowns in Playwright?
+379. How do you handle checkboxes and radio buttons?
+380. How do you upload a file in Playwright?
+381. How do you handle file downloads?
+382. How do you handle alerts, confirms, and prompts?
+383. How do you handle iframes in Playwright?
+384. How do you handle a new tab or popup?
+385. How do you perform hover, right-click, double-click, and drag-and-drop?
+
+### Playwright Framework, API & Debugging
+386. What are fixtures in Playwright?
+387. How do you create a custom fixture?
+388. Test-scoped vs worker-scoped fixtures?
+389. How do you implement Page Object Model in Playwright?
+390. How do you reuse login/authentication in Playwright?
+391. What is a setup project in Playwright?
+392. How do you perform API testing with Playwright?
+393. How do you validate an API response in Playwright?
+394. How can API calls help UI automation tests?
+395. How do you mock or intercept network requests?
+396. How do you wait for a network response?
+397. What is Playwright Trace?
+398. What is Trace Viewer?
+399. How do you take screenshots in Playwright?
+400. How do you record videos in Playwright?
+401. How do you debug Playwright tests?
+402. What is Playwright UI Mode?
+403. What is Playwright codegen?
+404. How do you handle flaky tests in Playwright?
+405. What is locator strictness in Playwright?
+406. How do you verify the number of matching elements?
+407. toHaveText() vs toContainText()?
+408. What are soft assertions in Playwright?
+409. What is expect.poll()?
+410. How do you manage different environments and secrets?
+411. How do you run Playwright tests in CI/CD?
+412. What is sharding in Playwright?
+413. Workers vs sharding in Playwright?
+414. Playwright vs Selenium?
+415. How would you explain your Playwright automation framework in an interview?
+
