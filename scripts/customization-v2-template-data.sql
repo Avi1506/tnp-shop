@@ -2,14 +2,14 @@
 -- Backward-compatible: legacy print template keys are retained for current main.
 
 UPDATE categories SET print_template = '{
-"templateVersion":6,"printType":"cylindrical","shape":"rectangle",
+"templateVersion":7,"printType":"cylindrical","shape":"rectangle",
 "physical":{"width":7.5,"height":3.5,"unit":"in","dpi":300},
 "safeArea":{"topPct":3,"rightPct":3,"bottomPct":3,"leftPct":3},"bleed":null,"maskUrl":null,
 "cylindrical3d":{"modelRef":"procedural:mug-v1","radius":1.18,"bodyHeight":2.45,"wrapCoverageDeg":270,"wrapOffsetDeg":0,"cameraDistance":6.2,"cameraPitchDeg":5,"baseColor":"#f7f7f4","roughness":0.34,"metalness":0,"handleSide":"right"},
 "views":[
-{"id":"front","name":"Front","mockupUrl":"/images/mockups/mug-left.jpg","printArea":{"xPct":28.5,"yPct":35,"widthPct":43,"heightPct":44},"source":{"xPct":22.5,"yPct":0,"widthPct":55,"heightPct":100},"curvatureStrength":1.12,"perspectiveStrength":0,"edgeFalloff":0.32,"blendMode":"multiply","angleDeg":0},
-{"id":"left","name":"Left","mockupUrl":"/images/mockups/mug-handle-left.jpg","printArea":{"xPct":29,"yPct":35,"widthPct":42,"heightPct":44},"source":{"xPct":0,"yPct":0,"widthPct":55,"heightPct":100},"curvatureStrength":1.18,"perspectiveStrength":-0.08,"edgeFalloff":0.36,"blendMode":"multiply","angleDeg":-65},
-{"id":"right","name":"Right","mockupUrl":"/images/mockups/mug-left.jpg","printArea":{"xPct":29,"yPct":35,"widthPct":42,"heightPct":44},"source":{"xPct":45,"yPct":0,"widthPct":55,"heightPct":100},"curvatureStrength":1.18,"perspectiveStrength":0.08,"edgeFalloff":0.36,"blendMode":"multiply","angleDeg":65}],
+{"id":"front","name":"Front","mockupUrl":"/images/mockups/mug-left.jpg","printArea":{"xPct":28.2,"yPct":33.7,"widthPct":43.8,"heightPct":47.2},"source":{"xPct":22.5,"yPct":0,"widthPct":55,"heightPct":100},"curvatureStrength":1.12,"perspectiveStrength":0,"edgeFalloff":0.32,"blendMode":"multiply","angleDeg":0},
+{"id":"left","name":"Left","mockupUrl":"/images/mockups/mug-handle-left.jpg","printArea":{"xPct":28.8,"yPct":33.8,"widthPct":42.8,"heightPct":47},"source":{"xPct":0,"yPct":0,"widthPct":55,"heightPct":100},"curvatureStrength":1.18,"perspectiveStrength":-0.08,"edgeFalloff":0.36,"blendMode":"multiply","angleDeg":-65},
+{"id":"right","name":"Right","mockupUrl":"/images/mockups/mug-left.jpg","printArea":{"xPct":28.8,"yPct":33.8,"widthPct":42.8,"heightPct":47},"source":{"xPct":45,"yPct":0,"widthPct":55,"heightPct":100},"curvatureStrength":1.18,"perspectiveStrength":0.08,"edgeFalloff":0.36,"blendMode":"multiply","angleDeg":65}],
 "widthInches":7.5,"heightInches":3.5,"blankMockupUrl":"/images/mockups/mug-left.jpg",
 "printAreaOnMockup":{"xPct":28,"yPct":28,"widthPct":44,"heightPct":52}
 }'::jsonb WHERE slug='mugs-drinkware';

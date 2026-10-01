@@ -28,9 +28,46 @@ function resolvedMockupUrl(view: MockupView) {
 }
 
 function viewPerspective(view: MockupView) {
-  if (view.id === "left") return -0.018;
-  if (view.id === "right") return 0.018;
+  if (view.id === "left") return -0.012;
+  if (view.id === "right") return 0.012;
   return 0;
+}
+
+function clipMugPrintBand(
+  ctx: CanvasRenderingContext2D,
+  x: number,
+  y: number,
+  width: number,
+  height: number
+) {
+  const topEdgeInset = height * 0.045;
+  const bottomEdgeInset = height * 0.035;
+  const steps = 48;
+
+  ctx.beginPath();
+
+  for (let index = 0; index <= steps; index += 1) {
+    const t = index / steps;
+    const normalized = Math.abs(t * 2 - 1);
+    const curve = Math.pow(normalized, 1.8);
+    const px = x + width * t;
+    const py = y + topEdgeInset * curve;
+
+    if (index === 0) ctx.moveTo(px, py);
+    else ctx.lineTo(px, py);
+  }
+
+  for (let index = steps; index >= 0; index -= 1) {
+    const t = index / steps;
+    const normalized = Math.abs(t * 2 - 1);
+    const curve = Math.pow(normalized, 1.8);
+    const px = x + width * t;
+    const py = y + height - bottomEdgeInset * curve;
+    ctx.lineTo(px, py);
+  }
+
+  ctx.closePath();
+  ctx.clip();
 }
 
 export default function CylindricalPhotoPreview({
@@ -82,6 +119,7 @@ export default function CylindricalPhotoPreview({
       const mockupX = (rect.width - mockupWidth) / 2;
       const mockupY = (rect.height - mockupHeight) / 2;
 
+      // The supplied blank mug photo is always the unchanged base.
       ctx.drawImage(mockup, mockupX, mockupY, mockupWidth, mockupHeight);
       if (!artwork) return;
 
@@ -97,12 +135,13 @@ export default function CylindricalPhotoPreview({
       const sourceWidth = (artwork.width * view.source.widthPct) / 100;
       const sourceHeight = (artwork.height * view.source.heightPct) / 100;
 
-      const strips = Math.max(220, Math.min(520, Math.round(printWidth * 1.6)));
-      const thetaMax = (88.5 * Math.PI) / 180;
+      const strips = Math.max(280, Math.min(640, Math.round(printWidth * 2)));
+      const thetaMax = (86 * Math.PI) / 180;
       const sinMax = Math.sin(thetaMax);
       const tilt = viewPerspective(view);
 
       ctx.save();
+      clipMugPrintBand(ctx, printX, printY, printWidth, printHeight);
       ctx.globalCompositeOperation = "source-over";
 
       for (let index = 0; index < strips; index += 1) {
@@ -114,46 +153,29 @@ export default function CylindricalPhotoPreview({
         const theta1 = -thetaMax + t1 * thetaMax * 2;
         const theta = -thetaMax + tc * thetaMax * 2;
 
+        // Orthographic cylinder projection. Equal source slices progressively
+        // compress toward the tangents exactly like artwork turning around a mug.
         const x0 = (Math.sin(theta0) / sinMax + 1) / 2;
         const x1 = (Math.sin(theta1) / sinMax + 1) / 2;
 
         const sx = sourceX + sourceWidth * t0;
-        const sw = Math.max(1, sourceWidth * (t1 - t0) + 0.9);
+        const sw = Math.max(1, sourceWidth * (t1 - t0) + 0.8);
 
         const dx = printX + printWidth * x0;
-        const dw = Math.max(0.85, printWidth * (x1 - x0) + 1.1);
+        const dw = Math.max(0.8, printWidth * (x1 - x0) + 1);
 
         const facing = Math.max(0, Math.cos(theta));
         const side = Math.sin(theta);
-
-        // Curve the TOP and BOTTOM edges as the ceramic surface turns away.
-        // This is what prevents the artwork from reading as a flat rectangle.
-        const edgeCurve = Math.pow(Math.abs(side), 1.72);
-        const topInset = printHeight * 0.085 * edgeCurve;
-        const bottomInset = printHeight * 0.085 * edgeCurve;
         const perspectiveShift = printHeight * tilt * side;
 
-        const dy = printY + topInset + perspectiveShift;
-        const dh = Math.max(
-          printHeight * 0.72,
-          printHeight - topInset - bottomInset
-        );
-
-        // Preserve the customer's original colours. Only a tiny photographic
-        // roll-off is added toward the tangents.
-        const brightness = clamp(
-          0.965 + 0.035 * Math.pow(facing, 0.5),
-          0.965,
-          1
-        );
-        const alpha = clamp(
-          0.64 + 0.36 * Math.pow(facing, 0.26),
-          0.64,
+        // Keep original customer colours. Only reduce opacity slightly at the
+        // extreme tangents so the print disappears naturally around the side.
+        ctx.globalAlpha = clamp(
+          0.88 + 0.12 * Math.pow(facing, 0.3),
+          0.88,
           1
         );
 
-        ctx.globalAlpha = alpha;
-        ctx.filter = `brightness(${Math.round(brightness * 100)}%)`;
         ctx.drawImage(
           artwork,
           sx,
@@ -161,18 +183,15 @@ export default function CylindricalPhotoPreview({
           sw,
           sourceHeight,
           dx,
-          dy,
+          printY + perspectiveShift,
           dw,
-          dh
+          printHeight
         );
       }
 
-      ctx.filter = "none";
       ctx.globalAlpha = 1;
       ctx.restore();
       ctx.globalCompositeOperation = "source-over";
-
-
     };
 
     const jobs: Promise<unknown>[] = [
