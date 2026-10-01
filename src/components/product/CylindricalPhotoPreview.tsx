@@ -98,7 +98,7 @@ export default function CylindricalPhotoPreview({
       const sourceHeight = (artwork.height * view.source.heightPct) / 100;
 
       const strips = Math.max(220, Math.min(520, Math.round(printWidth * 1.6)));
-      const thetaMax = (87 * Math.PI) / 180;
+      const thetaMax = (88.5 * Math.PI) / 180;
       const sinMax = Math.sin(thetaMax);
       const tilt = viewPerspective(view);
 
@@ -124,23 +124,31 @@ export default function CylindricalPhotoPreview({
         const dw = Math.max(0.85, printWidth * (x1 - x0) + 1.1);
 
         const facing = Math.max(0, Math.cos(theta));
-        const edge = 1 - facing;
-        const heightLoss = printHeight * 0.055 * edge;
         const side = Math.sin(theta);
-        const dy =
-          printY +
-          heightLoss / 2 +
-          printHeight * tilt * side;
-        const dh = printHeight - heightLoss;
 
+        // Curve the TOP and BOTTOM edges as the ceramic surface turns away.
+        // This is what prevents the artwork from reading as a flat rectangle.
+        const edgeCurve = Math.pow(Math.abs(side), 1.72);
+        const topInset = printHeight * 0.085 * edgeCurve;
+        const bottomInset = printHeight * 0.085 * edgeCurve;
+        const perspectiveShift = printHeight * tilt * side;
+
+        const dy = printY + topInset + perspectiveShift;
+        const dh = Math.max(
+          printHeight * 0.72,
+          printHeight - topInset - bottomInset
+        );
+
+        // Preserve the customer's original colours. Only a tiny photographic
+        // roll-off is added toward the tangents.
         const brightness = clamp(
-          0.9 + 0.1 * Math.pow(facing, 0.45),
-          0.9,
+          0.965 + 0.035 * Math.pow(facing, 0.5),
+          0.965,
           1
         );
         const alpha = clamp(
-          0.42 + 0.58 * Math.pow(facing, 0.24),
-          0.42,
+          0.64 + 0.36 * Math.pow(facing, 0.26),
+          0.64,
           1
         );
 
@@ -164,23 +172,7 @@ export default function CylindricalPhotoPreview({
       ctx.restore();
       ctx.globalCompositeOperation = "source-over";
 
-      const edgeShade = ctx.createLinearGradient(
-        printX,
-        0,
-        printX + printWidth,
-        0
-      );
-      edgeShade.addColorStop(0, "rgba(0,0,0,0.12)");
-      edgeShade.addColorStop(0.08, "rgba(0,0,0,0.035)");
-      edgeShade.addColorStop(0.22, "rgba(0,0,0,0)");
-      edgeShade.addColorStop(0.78, "rgba(0,0,0,0)");
-      edgeShade.addColorStop(0.92, "rgba(0,0,0,0.035)");
-      edgeShade.addColorStop(1, "rgba(0,0,0,0.12)");
-      ctx.save();
-      ctx.globalCompositeOperation = "multiply";
-      ctx.fillStyle = edgeShade;
-      ctx.fillRect(printX, printY, printWidth, printHeight);
-      ctx.restore();
+
     };
 
     const jobs: Promise<unknown>[] = [
