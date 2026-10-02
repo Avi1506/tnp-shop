@@ -323,11 +323,10 @@ export default function Cylindrical3DScene({
             350,
             Math.max(180, activeConfig.wrapCoverageDeg || 270)
           );
-          const thetaLength = THREE.MathUtils.degToRad(coverageDeg);
+          const printArcRad = THREE.MathUtils.degToRad(coverageDeg);
           const thetaOffset = THREE.MathUtils.degToRad(
             activeConfig.wrapOffsetDeg ?? 0
           );
-          const thetaStart = -thetaLength / 2 + thetaOffset;
 
           if (activeConfig.modelRef === "procedural:mug-v1") {
             // Preserve the real print proportion (e.g. 7.5 × 3.5 in) on the
@@ -337,7 +336,7 @@ export default function Cylindrical3DScene({
               Math.max(0.1, template.physical.width) /
               Math.max(0.1, template.physical.height);
             const aspectCorrectHeight =
-              (radius * thetaLength) / Math.max(0.1, physicalAspect);
+              (radius * printArcRad) / Math.max(0.1, physicalAspect);
             printableHeight = Math.min(
               bodyHeight * 0.91,
               Math.max(bodyHeight * 0.72, aspectCorrectHeight)
@@ -357,11 +356,70 @@ export default function Cylindrical3DScene({
                 return;
               }
 
-              textureRef = texture;
-              texture.colorSpace = THREE.SRGBColorSpace;
-              texture.wrapS = THREE.ClampToEdgeWrapping;
-              texture.wrapT = THREE.ClampToEdgeWrapping;
-              texture.anisotropy = Math.min(
+              // Map the artwork onto a complete cylinder instead of creating a
+              // hard-ended partial mesh. The real printable coverage occupies the
+              // centre of the texture and the non-printable remainder is transparent
+              // at the back. This keeps the physical print size correct while
+              // preventing a vertical mesh cut from appearing in customer views.
+              const sourceImage = (texture as unknown as { image?: CanvasImageSource }).image;
+              if (!sourceImage) {
+                texture.dispose();
+                onUnavailable();
+                return;
+              }
+
+              const sourceSize = texture.image as {
+                naturalWidth?: number;
+                naturalHeight?: number;
+                width?: number;
+                height?: number;
+              };
+              const sourceWidth = Math.max(
+                1,
+                Number(sourceSize.naturalWidth ?? sourceSize.width ?? 1)
+              );
+              const sourceHeight = Math.max(
+                1,
+                Number(sourceSize.naturalHeight ?? sourceSize.height ?? 1)
+              );
+              const coverageRatio = Math.min(
+                0.98,
+                Math.max(0.5, coverageDeg / 360)
+              );
+              const maxArtworkWidth = Math.min(sourceWidth, 3072);
+              const artworkScale = maxArtworkWidth / sourceWidth;
+              const artworkWidth = Math.max(1, Math.round(sourceWidth * artworkScale));
+              const artworkHeight = Math.max(1, Math.round(sourceHeight * artworkScale));
+              const canvasWidth = Math.max(
+                artworkWidth,
+                Math.round(artworkWidth / coverageRatio)
+              );
+
+              const textureCanvas = document.createElement("canvas");
+              textureCanvas.width = canvasWidth;
+              textureCanvas.height = artworkHeight;
+              const context = textureCanvas.getContext("2d");
+              if (!context) {
+                texture.dispose();
+                onUnavailable();
+                return;
+              }
+              context.clearRect(0, 0, canvasWidth, artworkHeight);
+              context.drawImage(
+                sourceImage,
+                Math.round((canvasWidth - artworkWidth) / 2),
+                0,
+                artworkWidth,
+                artworkHeight
+              );
+
+              const mappedTexture = new THREE.CanvasTexture(textureCanvas);
+              texture.dispose();
+              textureRef = mappedTexture;
+              mappedTexture.colorSpace = THREE.SRGBColorSpace;
+              mappedTexture.wrapS = THREE.ClampToEdgeWrapping;
+              mappedTexture.wrapT = THREE.ClampToEdgeWrapping;
+              mappedTexture.anisotropy = Math.min(
                 8,
                 activeRenderer.capabilities.getMaxAnisotropy()
               );
@@ -374,11 +432,11 @@ export default function Cylindrical3DScene({
                   256,
                   1,
                   true,
-                  thetaStart,
-                  thetaLength
+                  -Math.PI + thetaOffset,
+                  Math.PI * 2
                 ),
                 new THREE.MeshPhysicalMaterial({
-                  map: texture,
+                  map: mappedTexture,
                   transparent: true,
                   alphaTest: 0.002,
                   roughness: Math.min(0.72, roughness + 0.08),
