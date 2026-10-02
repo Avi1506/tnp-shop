@@ -1,0 +1,17 @@
+name: temp-verify
+on:
+  push:
+    branches:
+      - feat/customization-engine-v2-20260928
+jobs:
+  verify:
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+      - uses: actions/setup-node@v4
+        with:
+          node-version: 22
+          cache: npm
+      - run: npm ci
+      - run: npx tsc --noEmit
+      - run: npx eslint src/components/product/Cylindrical3DScene.tsx src/components/product/CustomizeCanvas.tsx
