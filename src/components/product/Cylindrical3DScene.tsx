@@ -313,7 +313,7 @@ export default function Cylindrical3DScene({
             // Rotate the handle toward the rear-right. The printable wrap ends
             // near this meridian, so the termination is naturally hidden by the
             // handle instead of appearing as a floating vertical cut.
-            handle.rotation.y = THREE.MathUtils.degToRad(45);
+            handle.rotation.y = THREE.MathUtils.degToRad(25);
             handle.castShadow = true;
             handle.receiveShadow = true;
             product.add(handle);
