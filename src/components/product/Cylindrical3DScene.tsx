@@ -490,9 +490,24 @@ export default function Cylindrical3DScene({
             }
           );
 
-          const configuredAngle =
+          const requestedAngle =
             view.angleDeg ??
-            (view.id === "left" ? -58 : view.id === "right" ? 58 : 0);
+            (view.id === "left" ? -30 : view.id === "right" ? 30 : 0);
+
+          // Keep customer-facing camera views safely inside the printable arc.
+          // The visible hemisphere is slightly wider than 180° under perspective,
+          // so reserve ~105° from each print edge. A 270° mug therefore allows
+          // ±30° side views; a 300° bottle can safely show about ±45°.
+          const safeSideAngle = Math.max(0, coverageDeg / 2 - 105);
+          const configuredAngle =
+            view.id === "front"
+              ? 0
+              : THREE.MathUtils.clamp(
+                  requestedAngle,
+                  -safeSideAngle,
+                  safeSideAngle
+                );
+
           // Product rotation is opposite the camera-view naming convention:
           // a Left view must bring the LEFT portion of the wrap toward camera.
           product.rotation.y = -THREE.MathUtils.degToRad(configuredAngle);
