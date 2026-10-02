@@ -368,12 +368,14 @@ export default function Cylindrical3DScene({
                 return;
               }
 
-              const sourceSize = texture.image as {
-                naturalWidth?: number;
-                naturalHeight?: number;
-                width?: number;
-                height?: number;
-              };
+              const sourceSize = (texture as unknown as {
+                image: {
+                  naturalWidth?: number;
+                  naturalHeight?: number;
+                  width?: number;
+                  height?: number;
+                };
+              }).image;
               const sourceWidth = Math.max(
                 1,
                 Number(sourceSize.naturalWidth ?? sourceSize.width ?? 1)
