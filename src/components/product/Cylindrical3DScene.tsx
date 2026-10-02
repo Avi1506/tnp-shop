@@ -258,13 +258,14 @@ export default function Cylindrical3DScene({
             const inside = new THREE.Mesh(
               new THREE.CircleGeometry(radius * 0.895, 160),
               new THREE.MeshStandardMaterial({
-                color: 0xe6e6e2,
-                roughness: 0.78,
+                color: 0xc8c9c5,
+                roughness: 0.84,
                 metalness: 0,
+                side: THREE.DoubleSide,
               })
             );
             inside.rotation.x = -Math.PI / 2;
-            inside.position.y = bodyHeight / 2 - 0.035;
+            inside.position.y = bodyHeight / 2 - 0.065;
             product.add(inside);
 
             // Handle lies in the camera-facing XY plane and is physically part
