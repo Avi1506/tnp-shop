@@ -6,6 +6,7 @@ on:
 jobs:
   verify:
     runs-on: ubuntu-latest
+    timeout-minutes: 20
     steps:
       - uses: actions/checkout@v4
       - uses: actions/setup-node@v4
@@ -15,3 +16,68 @@ jobs:
       - run: npm ci
       - run: npx tsc --noEmit
       - run: npx eslint src/components/product/Cylindrical3DScene.tsx src/components/product/CustomizeCanvas.tsx
+      - run: |
+          npm install --no-save playwright@1.56.1
+          npx playwright install chromium
+      - name: Visual QA
+        env:
+          QA_URL: "https://tnp-shop-jfstqniz3-tnp-shop-team.vercel.app/products/chinese-cup/customize?_vercel_share=kj5noInMWHEcZ9kVUa89LPaBZGBoU4G9"
+        run: |
+          mkdir -p qa-output
+          cat > qa.mjs <<'EOF'
+          import { chromium } from "playwright";
+          import fs from "node:fs";
+
+          const browser = await chromium.launch({ headless: true });
+          const page = await browser.newPage({ viewport: { width: 1440, height: 1100 } });
+          const errors = [];
+          page.on("console", m => { if (m.type() === "error") errors.push(m.text()); });
+          page.on("pageerror", e => errors.push(e.message));
+
+          await page.goto(process.env.QA_URL, { waitUntil: "networkidle", timeout: 90000 });
+
+          const dataUrl = await page.evaluate(() => {
+            const canvas = document.createElement("canvas");
+            canvas.width = 1500; canvas.height = 700;
+            const ctx = canvas.getContext("2d");
+            if (!ctx) throw new Error("ctx");
+            const g = ctx.createLinearGradient(0,0,1500,0);
+            g.addColorStop(0,"#7ab6df"); g.addColorStop(.33,"#d9edf8");
+            g.addColorStop(.5,"#f4d6a1"); g.addColorStop(.67,"#f3d8aa"); g.addColorStop(1,"#df8e82");
+            ctx.fillStyle=g; ctx.fillRect(0,0,1500,700);
+            ctx.strokeStyle="rgba(20,30,50,.35)"; ctx.lineWidth=4;
+            for(let x=0;x<=1500;x+=125){ctx.beginPath();ctx.moveTo(x,0);ctx.lineTo(x,700);ctx.stroke();}
+            for(let y=0;y<=700;y+=100){ctx.beginPath();ctx.moveTo(0,y);ctx.lineTo(1500,y);ctx.stroke();}
+            ctx.fillStyle="#17335d"; ctx.font="bold 105px sans-serif"; ctx.textAlign="center"; ctx.textBaseline="middle";
+            ctx.fillText("LEFT",250,350); ctx.fillText("FRONT",750,350); ctx.fillText("RIGHT",1250,350);
+            ctx.strokeStyle="#8b4f20"; ctx.lineWidth=22; ctx.beginPath(); ctx.arc(750,350,185,0,Math.PI*2); ctx.stroke();
+            return canvas.toDataURL("image/png");
+          });
+
+          await page.locator('input[type="file"]').first().setInputFiles({
+            name:"qa-wrap.png", mimeType:"image/png", buffer:Buffer.from(dataUrl.split(",")[1],"base64")
+          });
+          await page.waitForTimeout(6000);
+          await page.getByRole("button",{name:/Preview on product/i}).click();
+          await page.waitForTimeout(5000);
+
+          await page.screenshot({path:"qa-output/front.png",fullPage:true});
+          await page.getByRole("button",{name:"Left",exact:true}).first().click();
+          await page.waitForTimeout(1600);
+          await page.screenshot({path:"qa-output/left.png",fullPage:true});
+          await page.getByRole("button",{name:"Right",exact:true}).first().click();
+          await page.waitForTimeout(1600);
+          await page.screenshot({path:"qa-output/right.png",fullPage:true});
+          await page.setViewportSize({width:390,height:844});
+          await page.getByRole("button",{name:"Front",exact:true}).first().click();
+          await page.waitForTimeout(1600);
+          await page.screenshot({path:"qa-output/mobile.png",fullPage:true});
+          fs.writeFileSync("qa-output/errors.txt",errors.join("\n"));
+          await browser.close();
+          EOF
+          node qa.mjs
+      - uses: actions/upload-artifact@v4
+        if: always()
+        with:
+          name: true3d-qa
+          path: qa-output/
