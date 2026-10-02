@@ -24,8 +24,6 @@ import type {
 } from "@/db/schema";
 import { outputPixels, resolveProductTemplate, sourceStyle } from "@/lib/print-template";
 import Cylindrical3DPreview from "@/components/product/Cylindrical3DPreview";
-import CylindricalPhotoPreview from "@/components/product/CylindricalPhotoPreview";
-import MugPhoto3DPreview from "@/components/product/MugPhoto3DPreview";
 import { uploadFile } from "@/lib/client-upload";
 import { useCart } from "@/components/cart/CartContext";
 
