@@ -111,15 +111,8 @@ export default function Cylindrical3DScene({
           const product = new THREE.Group();
           scene.add(product);
 
-          const configuredRadius = Math.max(0.55, activeConfig.radius || 0.98);
-          const radius =
-            activeConfig.modelRef === "procedural:mug-v1"
-              ? 1
-              : configuredRadius;
-          const bodyHeight =
-            activeConfig.modelRef === "procedural:mug-v1"
-              ? 2.32
-              : Math.max(1.4, activeConfig.bodyHeight || 2.55);
+          const radius = Math.max(0.55, activeConfig.radius || 0.98);
+          const bodyHeight = Math.max(1.4, activeConfig.bodyHeight || 2.55);
           const baseColor = new THREE.Color(activeConfig.baseColor ?? "#fbfbf8");
           const roughness = Math.min(1, Math.max(0.12, activeConfig.roughness ?? 0.28));
           const metalness = Math.min(1, Math.max(0, activeConfig.metalness ?? 0));
@@ -132,7 +125,9 @@ export default function Cylindrical3DScene({
             clearcoatRoughness: 0.22,
           });
 
-          let printableRadius = radius * 1.008;
+          let surfaceHeight = bodyHeight;
+          let surfaceCenterY = 0;
+          let bottomRadiusRatio = 0.965;
           let printableHeight = bodyHeight * 0.78;
           let printableCenterY = 0;
           let floorY = -bodyHeight / 2;
@@ -210,7 +205,9 @@ export default function Cylindrical3DScene({
 
             printableHeight = straightHeight * 0.94;
             printableCenterY = -bodyHeight * 0.14;
-            printableRadius = radius * 1.008;
+            surfaceHeight = straightHeight;
+            surfaceCenterY = printableCenterY;
+            bottomRadiusRatio = 0.985;
             floorY = -bodyHeight * 0.5;
           } else {
             // Slight taper makes the mug read as ceramic rather than a generic tube.
@@ -313,14 +310,15 @@ export default function Cylindrical3DScene({
             // Rotate the handle toward the rear-right. The printable wrap ends
             // near this meridian, so the termination is naturally hidden by the
             // handle instead of appearing as a floating vertical cut.
-            handle.rotation.y = THREE.MathUtils.degToRad(25);
+            handle.rotation.y = THREE.MathUtils.degToRad(
+              activeConfig.handleSide === "left" ? 155 : 25
+            );
             handle.castShadow = true;
             handle.receiveShadow = true;
             product.add(handle);
 
             printableHeight = bodyHeight * 0.80;
             printableCenterY = -bodyHeight * 0.015;
-            printableRadius = radius * 1.022;
           }
 
           const coverageDeg = Math.min(
@@ -343,12 +341,39 @@ export default function Cylindrical3DScene({
               (radius * printArcRad) / Math.max(0.1, physicalAspect);
             printableHeight = Math.min(
               bodyHeight * 0.91,
-              Math.max(bodyHeight * 0.72, aspectCorrectHeight)
+              aspectCorrectHeight
             );
             // Shift the print slightly upward: slim white lip at the top,
             // slightly more ceramic visible at the base, matching the reference mug.
             printableCenterY = bodyHeight * 0.008;
           }
+
+          // Dedicated no-print margins describe the physical model, whereas
+          // template.safeArea is a guide inside the flat production artwork.
+          const topMargin = surfaceHeight * Math.min(
+            0.45, Math.max(0, (activeConfig.printableTopMarginPct ?? 0) / 100)
+          );
+          const bottomMargin = surfaceHeight * Math.min(
+            0.45, Math.max(0, (activeConfig.printableBottomMarginPct ?? 0) / 100)
+          );
+          const bandTop = surfaceCenterY + surfaceHeight / 2 - topMargin;
+          const bandBottom = surfaceCenterY - surfaceHeight / 2 + bottomMargin;
+          printableHeight = Math.min(printableHeight, bandTop - bandBottom);
+          printableCenterY = THREE.MathUtils.clamp(
+            printableCenterY,
+            bandBottom + printableHeight / 2,
+            bandTop - printableHeight / 2
+          );
+
+          // Follow the ceramic taper at both edges of the print band. A
+          // constant-radius overlay floats above the narrower base and creates
+          // a visible ledge instead of ink on the product surface.
+          const radiusAtY = (y: number) => {
+            const fraction = THREE.MathUtils.clamp(
+              (y - surfaceCenterY + surfaceHeight / 2) / surfaceHeight, 0, 1
+            );
+            return radius * (bottomRadiusRatio + (1 - bottomRadiusRatio) * fraction) + radius * 0.0015;
+          };
 
           const textureLoader = new THREE.TextureLoader();
           textureLoader.setCrossOrigin("anonymous");
@@ -457,8 +482,8 @@ export default function Cylindrical3DScene({
 
               const printSurface = new THREE.Mesh(
                 new THREE.CylinderGeometry(
-                  printableRadius,
-                  printableRadius,
+                  radiusAtY(printableCenterY + printableHeight / 2),
+                  radiusAtY(printableCenterY - printableHeight / 2),
                   printableHeight,
                   256,
                   1,
@@ -564,9 +589,7 @@ export default function Cylindrical3DScene({
             );
 
             const pitch = THREE.MathUtils.degToRad(
-              activeConfig.modelRef === "procedural:mug-v1"
-                ? 12
-                : activeConfig.cameraPitchDeg ?? 5
+              activeConfig.cameraPitchDeg ?? 5
             );
             camera.position.set(
               center.x,

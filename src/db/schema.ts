@@ -118,6 +118,8 @@ export type Cylindrical3DConfig = {
   roughness?: number;
   metalness?: number;
   handleSide?: "left" | "right";
+  printableTopMarginPct?: number;
+  printableBottomMarginPct?: number;
 };
 
 export type PrintTemplate = {

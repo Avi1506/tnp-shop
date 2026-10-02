@@ -108,66 +108,6 @@ export function resolveProductTemplate(
     }));
   }
 
-  // Mug previews are intentionally photo-based. Keep the supplied blank mug
-  // photography untouched and only calibrate the artwork band on top of it.
-  // This is preview-only and never changes the flat print-ready artwork.
-  if (
-    resolved.printType === "cylindrical" &&
-    resolved.cylindrical3d?.modelRef === "procedural:mug-v1"
-  ) {
-    const photoCalibration: Record<string, {
-      printArea: PercentBox;
-      curvatureStrength: number;
-      perspectiveStrength: number;
-      edgeFalloff: number;
-      angleDeg: number;
-    }> = {
-      front: {
-        printArea: { xPct: 28.2, yPct: 33.7, widthPct: 43.8, heightPct: 47.2 },
-        curvatureStrength: 0.86,
-        perspectiveStrength: 0,
-        edgeFalloff: 0.18,
-        angleDeg: 0,
-      },
-      left: {
-        printArea: { xPct: 28.8, yPct: 33.8, widthPct: 42.8, heightPct: 47 },
-        curvatureStrength: 0.9,
-        perspectiveStrength: -0.06,
-        edgeFalloff: 0.22,
-        // Keep the physical end of a 270° print wrap behind the silhouette.
-        // ±65° exposes the cut edge; ±42° shows the side without the seam.
-        angleDeg: -20,
-      },
-      right: {
-        printArea: { xPct: 29, yPct: 35, widthPct: 42, heightPct: 44 },
-        curvatureStrength: 0.9,
-        perspectiveStrength: 0.06,
-        edgeFalloff: 0.22,
-        angleDeg: 20,
-      },
-    };
-
-    const mugMockups: Record<string, string> = {
-      // Use the supplied real mug photos. Front/right keep the handle visible,
-      // matching the physical-product reference instead of a handle-less cylinder.
-      front: "/images/mockups/mug-left.jpg",
-      left: "/images/mockups/mug-handle-left.jpg",
-      right: "/images/mockups/mug-left.jpg",
-    };
-
-    resolved.views = resolved.views.map((view) => {
-      const calibration = photoCalibration[view.id];
-      return calibration
-        ? {
-            ...view,
-            ...calibration,
-            mockupUrl: mugMockups[view.id] ?? view.mockupUrl,
-            blendMode: "normal" as const,
-          }
-        : view;
-    });
-  }
-
   return resolved;
 }
 

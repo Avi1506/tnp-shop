@@ -394,8 +394,55 @@ export default function PrintTemplateEditor({
               />
             </label>
           </div>
+          <div className="mt-3 grid gap-3 sm:grid-cols-3">
+            {(["printableTopMarginPct", "printableBottomMarginPct"] as const).map((key) => (
+              <label key={key} className="text-[10px] font-semibold text-navy/50">
+                {key === "printableTopMarginPct" ? "Top No-print Margin (%)" : "Bottom No-print Margin (%)"}
+                <input
+                  type="number"
+                  min={0}
+                  max={45}
+                  step={1}
+                  value={template.cylindrical3d?.[key] ?? 0}
+                  onChange={(event) => patch({ cylindrical3d: {
+                    ...template.cylindrical3d!,
+                    [key]: clamp(safeNumber(event.target.value, 0), 0, 45),
+                  } })}
+                  className="mt-1 w-full rounded border border-border bg-white px-2 py-2 text-xs text-navy"
+                />
+              </label>
+            ))}
+            <label className="text-[10px] font-semibold text-navy/50">
+              Camera Pitch (°)
+              <input
+                type="number" min={0} max={35} step={1}
+                value={template.cylindrical3d.cameraPitchDeg ?? 5}
+                onChange={(event) => patch({ cylindrical3d: {
+                  ...template.cylindrical3d!,
+                  cameraPitchDeg: clamp(safeNumber(event.target.value, 5), 0, 35),
+                } })}
+                className="mt-1 w-full rounded border border-border bg-white px-2 py-2 text-xs text-navy"
+              />
+            </label>
+            {template.cylindrical3d.modelRef === "procedural:mug-v1" && (
+              <label className="text-[10px] font-semibold text-navy/50">
+                Handle Side
+                <select
+                  value={template.cylindrical3d.handleSide ?? "right"}
+                  onChange={(event) => patch({ cylindrical3d: {
+                    ...template.cylindrical3d!,
+                    handleSide: event.target.value as "left" | "right",
+                  } })}
+                  className="mt-1 w-full rounded border border-border bg-white px-2 py-2 text-xs text-navy"
+                >
+                  <option value="right">Right</option>
+                  <option value="left">Left</option>
+                </select>
+              </label>
+            )}
+          </div>
           <p className="mt-2 text-[10px] leading-relaxed text-navy/50">
-            Safe margins above control the printable vertical band. This model configuration is used by the true 3D preview; the flat print file is unchanged.
+            No-print margins limit artwork on the product body. Safe margins above are guides inside the flat artwork. These 3D settings change the preview only.
           </p>
         </div>
       )}
