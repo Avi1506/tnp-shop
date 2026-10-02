@@ -216,7 +216,7 @@ export default function Cylindrical3DScene({
             // Slight taper makes the mug read as ceramic rather than a generic tube.
             const body = new THREE.Mesh(
               new THREE.CylinderGeometry(
-                radius * 1.015,
+                radius * 1.0,
                 radius * 0.965,
                 bodyHeight,
                 192,
@@ -239,27 +239,33 @@ export default function Cylindrical3DScene({
             product.add(bottom);
 
             const rim = new THREE.Mesh(
-              new THREE.TorusGeometry(radius * 1.01, radius * 0.045, 24, 160),
+              new THREE.TorusGeometry(
+                radius * 0.992,
+                radius * 0.026,
+                20,
+                160
+              ),
               ceramic
             );
-            // TorusGeometry is created in the XY plane. Rotate it into the
-            // horizontal XZ plane so it is a real mug rim, not a vertical hoop.
+            // Keep the lip subtle: the previous torus was too thick and made
+            // the mug look like it had a separate lid/head.
             rim.rotation.x = Math.PI / 2;
-            rim.position.y = bodyHeight / 2;
+            rim.position.y = bodyHeight / 2 - 0.01;
             rim.castShadow = true;
+            rim.receiveShadow = true;
             product.add(rim);
 
             // Darker recessed inner surface gives the top opening real depth.
             const inside = new THREE.Mesh(
-              new THREE.CircleGeometry(radius * 0.91, 160),
+              new THREE.CircleGeometry(radius * 0.875, 160),
               new THREE.MeshStandardMaterial({
-                color: 0xd9d9d5,
-                roughness: 0.72,
+                color: 0xdededa,
+                roughness: 0.76,
                 metalness: 0,
               })
             );
             inside.rotation.x = -Math.PI / 2;
-            inside.position.y = bodyHeight / 2 - 0.055;
+            inside.position.y = bodyHeight / 2 - 0.06;
             product.add(inside);
 
             // Handle lies in the camera-facing XY plane and is physically part
@@ -432,17 +438,17 @@ export default function Cylindrical3DScene({
 
             const pitch = THREE.MathUtils.degToRad(
               activeConfig.modelRef === "procedural:mug-v1"
-                ? Math.max(8, activeConfig.cameraPitchDeg ?? 8)
+                ? 5.5
                 : activeConfig.cameraPitchDeg ?? 5
             );
             camera.position.set(
               center.x,
-              center.y + Math.sin(pitch) * distance,
+              center.y + Math.sin(pitch) * distance * 0.82,
               center.z + Math.cos(pitch) * distance
             );
             camera.lookAt(
               center.x,
-              center.y + bodyHeight * 0.015,
+              center.y + bodyHeight * 0.01,
               center.z
             );
             camera.updateProjectionMatrix();
