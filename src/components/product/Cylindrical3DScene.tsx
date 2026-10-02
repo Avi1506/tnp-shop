@@ -255,17 +255,37 @@ export default function Cylindrical3DScene({
             product.add(rim);
 
             // Darker recessed inner surface gives the top opening real depth.
+            const innerMaterial = new THREE.MeshStandardMaterial({
+              color: 0xc7c8c4,
+              roughness: 0.9,
+              metalness: 0,
+              side: THREE.DoubleSide,
+            });
+
+            const innerWall = new THREE.Mesh(
+              new THREE.CylinderGeometry(
+                radius * 0.90,
+                radius * 0.90,
+                bodyHeight * 0.15,
+                160,
+                1,
+                true
+              ),
+              innerMaterial
+            );
+            innerWall.position.y =
+              bodyHeight / 2 - (bodyHeight * 0.15) / 2 - 0.015;
+            product.add(innerWall);
+
             const inside = new THREE.Mesh(
               new THREE.CircleGeometry(radius * 0.895, 160),
-              new THREE.MeshStandardMaterial({
-                color: 0xc8c9c5,
-                roughness: 0.84,
-                metalness: 0,
+              new THREE.MeshBasicMaterial({
+                color: 0xaeb0ad,
                 side: THREE.DoubleSide,
               })
             );
             inside.rotation.x = -Math.PI / 2;
-            inside.position.y = bodyHeight / 2 - 0.065;
+            inside.position.y = bodyHeight / 2 - bodyHeight * 0.15 - 0.02;
             product.add(inside);
 
             // Handle lies in the camera-facing XY plane and is physically part
