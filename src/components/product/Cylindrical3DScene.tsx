@@ -508,6 +508,8 @@ export default function Cylindrical3DScene({
               product.add(printSurface);
 
               render();
+              activeRenderer.domElement.dataset.previewReady = "true";
+              activeRenderer.domElement.dataset.previewView = view.id;
             },
             undefined,
             () => {
@@ -628,5 +630,5 @@ export default function Cylindrical3DScene({
     };
   }, [artworkUrl, onUnavailable, template, view]);
 
-  return <div ref={hostRef} className="h-full w-full" />;
+  return <div ref={hostRef} aria-label="3D product preview" className="h-full w-full" />;
 }

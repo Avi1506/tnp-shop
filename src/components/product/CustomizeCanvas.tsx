@@ -1056,9 +1056,7 @@ export default function CustomizeCanvas({
             <div className="flex items-center justify-between border-t border-border px-4 py-3 text-[11px] text-navy/50 sm:px-5">
               <span>
                 {selectedView?.name} ·{" "}
-                {template.printType === "cylindrical"
-                  ? "3D UV product preview"
-                  : "Product preview"}
+                Product preview
               </span>
               <button
                 type="button"

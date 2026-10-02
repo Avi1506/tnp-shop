@@ -1,0 +1,33 @@
+name: Customization preview regression
+on:
+  push:
+    branches: [feat/customization-engine-v2-20260928]
+    paths:
+      - src/components/product/Cylindrical3DScene.tsx
+      - scripts/qa-cylindrical-preview.mjs
+      - .github/workflows/customization-preview-qa.yml
+permissions:
+  contents: read
+jobs:
+  renderer:
+    runs-on: ubuntu-latest
+    timeout-minutes: 10
+    steps:
+      - uses: actions/checkout@v4
+      - uses: actions/setup-node@v4
+        with:
+          node-version: 22
+          cache: npm
+      - run: npm ci
+      - run: npx tsc --noEmit
+      - run: npx eslint src/components/product/Cylindrical3DScene.tsx src/components/product/Cylindrical3DPreview.tsx src/components/product/CustomizeCanvas.tsx src/components/admin/PrintTemplateEditor.tsx src/lib/print-template.ts src/db/schema.ts scripts/qa-cylindrical-preview.mjs
+      - run: npm install --no-save --package-lock=false playwright@1.56.1 pngjs@7.0.0
+      - run: npx playwright install --with-deps chromium
+      - run: node scripts/qa-cylindrical-preview.mjs
+      - uses: actions/upload-artifact@v4
+        if: always()
+        with:
+          name: customization-preview-evidence
+          path: |
+            qa-output/*.png
+            qa-output/results.json
