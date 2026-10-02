@@ -126,18 +126,23 @@ export function resolveProductTemplate(
         curvatureStrength: 0.86,
         perspectiveStrength: 0,
         edgeFalloff: 0.18,
+        angleDeg: 0,
       },
       left: {
         printArea: { xPct: 28.8, yPct: 33.8, widthPct: 42.8, heightPct: 47 },
         curvatureStrength: 0.9,
         perspectiveStrength: -0.06,
         edgeFalloff: 0.22,
+        // Keep the physical end of a 270° print wrap behind the silhouette.
+        // ±65° exposes the cut edge; ±42° shows the side without the seam.
+        angleDeg: -42,
       },
       right: {
         printArea: { xPct: 29, yPct: 35, widthPct: 42, heightPct: 44 },
         curvatureStrength: 0.9,
         perspectiveStrength: 0.06,
         edgeFalloff: 0.22,
+        angleDeg: 42,
       },
     };
 
@@ -209,7 +214,7 @@ export function defaultViews(printType: PrintType, mockupUrl = "", area?: Percen
       perspectiveStrength: -0.12,
       edgeFalloff: 0.38,
       blendMode: "multiply",
-      angleDeg: -65,
+      angleDeg: -42,
     },
     {
       id: "right",
@@ -221,7 +226,7 @@ export function defaultViews(printType: PrintType, mockupUrl = "", area?: Percen
       perspectiveStrength: 0.12,
       edgeFalloff: 0.38,
       blendMode: "multiply",
-      angleDeg: 65,
+      angleDeg: 42,
     },
   ];
 }
