@@ -111,7 +111,11 @@ export default function Cylindrical3DScene({
           const product = new THREE.Group();
           scene.add(product);
 
-          const radius = Math.max(0.55, activeConfig.radius || 0.98);
+          const configuredRadius = Math.max(0.55, activeConfig.radius || 0.98);
+          const radius =
+            activeConfig.modelRef === "procedural:mug-v1"
+              ? configuredRadius * 0.9
+              : configuredRadius;
           const bodyHeight = Math.max(1.4, activeConfig.bodyHeight || 2.55);
           const baseColor = new THREE.Color(activeConfig.baseColor ?? "#fbfbf8");
           const roughness = Math.min(1, Math.max(0.12, activeConfig.roughness ?? 0.28));
@@ -235,6 +239,9 @@ export default function Cylindrical3DScene({
               new THREE.TorusGeometry(radius * 1.01, radius * 0.045, 24, 160),
               ceramic
             );
+            // TorusGeometry is created in the XY plane. Rotate it into the
+            // horizontal XZ plane so it is a real mug rim, not a vertical hoop.
+            rim.rotation.x = Math.PI / 2;
             rim.position.y = bodyHeight / 2;
             rim.castShadow = true;
             product.add(rim);
@@ -256,15 +263,15 @@ export default function Cylindrical3DScene({
             // of the same rotating product group.
             const handle = new THREE.Mesh(
               new THREE.TorusGeometry(
-                radius * 0.66,
-                radius * 0.13,
+                radius * 0.56,
+                radius * 0.12,
                 28,
                 128
               ),
               ceramic
             );
-            handle.scale.y = 1.18;
-            handle.position.set(radius * 1.23, 0.02, -0.02);
+            handle.scale.y = 1.22;
+            handle.position.set(radius * 1.2, 0.01, -0.025);
             handle.castShadow = true;
             handle.receiveShadow = true;
             product.add(handle);
@@ -338,11 +345,12 @@ export default function Cylindrical3DScene({
             }
           );
 
-          const angle = THREE.MathUtils.degToRad(
+          const configuredAngle =
             view.angleDeg ??
-              (view.id === "left" ? -58 : view.id === "right" ? 58 : 0)
-          );
-          product.rotation.y = angle;
+            (view.id === "left" ? -58 : view.id === "right" ? 58 : 0);
+          // Product rotation is opposite the camera-view naming convention:
+          // a Left view must bring the LEFT portion of the wrap toward camera.
+          product.rotation.y = -THREE.MathUtils.degToRad(configuredAngle);
 
           const floor = new THREE.Mesh(
             new THREE.PlaneGeometry(14, 14),
