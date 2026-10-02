@@ -498,7 +498,7 @@ export default function Cylindrical3DScene({
           // The visible hemisphere is slightly wider than 180° under perspective,
           // so reserve ~105° from each print edge. A 270° mug therefore allows
           // ±30° side views; a 300° bottle can safely show about ±45°.
-          const safeSideAngle = Math.max(0, coverageDeg / 2 - 105);
+          const safeSideAngle = Math.max(0, coverageDeg / 2 - 115);
           const configuredAngle =
             view.id === "front"
               ? 0
