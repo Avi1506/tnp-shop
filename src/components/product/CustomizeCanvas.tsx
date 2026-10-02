@@ -654,9 +654,6 @@ export default function CustomizeCanvas({
   }
 
   const selectedView = template.views.find((view) => view.id === selectedViewId) ?? template.views[0];
-  const useMugPhoto3DPreview =
-    template.printType === "cylindrical" &&
-    template.cylindrical3d?.modelRef === "procedural:mug-v1";
   const unitLabel = template.physical.unit === "cm" ? "cm" : "in";
 
   return (
@@ -1049,11 +1046,11 @@ export default function CustomizeCanvas({
                     }`}
                   >
                     <div className="relative h-[72px] w-[72px] overflow-hidden rounded-xl bg-offwhite">
-                      {template.printType === "cylindrical" ? (
-                        <CylindricalPhotoPreview
+                      {template.printType === "cylindrical" && artworkSnapshot ? (
+                        <Cylindrical3DPreview
                           artworkUrl={artworkSnapshot}
-                          view={view}
                           template={template}
+                          view={view}
                         />
                       ) : view.mockupUrl ? (
                         <Image
@@ -1080,20 +1077,11 @@ export default function CustomizeCanvas({
                   {template.printType === "cylindrical" &&
                   selectedView &&
                   artworkSnapshot ? (
-                    useMugPhoto3DPreview ? (
-                      <MugPhoto3DPreview
-                        artworkUrl={artworkSnapshot}
-                        template={template}
-                        view={selectedView}
-                        priority
-                      />
-                    ) : (
-                      <Cylindrical3DPreview
-                        artworkUrl={artworkSnapshot}
-                        template={template}
-                        view={selectedView}
-                      />
-                    )
+                    <Cylindrical3DPreview
+                      artworkUrl={artworkSnapshot}
+                      template={template}
+                      view={selectedView}
+                    />
                   ) : (
                     <>
                       {selectedView?.mockupUrl ? (
@@ -1143,9 +1131,7 @@ export default function CustomizeCanvas({
               <span>
                 {selectedView?.name} ·{" "}
                 {template.printType === "cylindrical"
-                  ? useMugPhoto3DPreview
-                    ? "True 3D UV wrap on real mug photo"
-                    : "3D wrap preview"
+                  ? "3D UV product preview"
                   : "Product preview"}
               </span>
               <button
