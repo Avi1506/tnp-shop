@@ -463,7 +463,7 @@ export default function Cylindrical3DScene({
                   256,
                   1,
                   true,
-                  -Math.PI + thetaOffset,
+                  thetaOffset,
                   Math.PI * 2
                 ),
                 new THREE.MeshPhysicalMaterial({
