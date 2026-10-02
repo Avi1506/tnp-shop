@@ -213,54 +213,71 @@ export default function Cylindrical3DScene({
             printableRadius = radius * 1.008;
             floorY = -bodyHeight * 0.5;
           } else {
-            // Hollow lathed ceramic shell: rounded lip, real wall thickness,
-            // recessed interior and a softly rounded base in one continuous mesh.
-            const half = bodyHeight / 2;
-            const profile = [
-              new THREE.Vector2(0, -half),
-              new THREE.Vector2(radius * 0.82, -half),
-              new THREE.Vector2(radius * 0.95, -half + 0.055),
-              new THREE.Vector2(radius * 0.995, -half + 0.14),
-              new THREE.Vector2(radius * 1.005, half - 0.13),
-              new THREE.Vector2(radius * 0.99, half - 0.035),
-              new THREE.Vector2(radius * 0.95, half),
-              new THREE.Vector2(radius * 0.84, half - 0.065),
-              new THREE.Vector2(radius * 0.835, -half + 0.22),
-              new THREE.Vector2(radius * 0.72, -half + 0.17),
-              new THREE.Vector2(0, -half + 0.17),
-            ];
-
+            // Slight taper makes the mug read as ceramic rather than a generic tube.
             const body = new THREE.Mesh(
-              new THREE.LatheGeometry(profile, 192),
-              new THREE.MeshPhysicalMaterial({
-                color: baseColor,
-                roughness,
-                metalness,
-                clearcoat: 0.32,
-                clearcoatRoughness: 0.2,
-                side: THREE.DoubleSide,
-              })
+              new THREE.CylinderGeometry(
+                radius * 1.015,
+                radius * 0.965,
+                bodyHeight,
+                192,
+                1,
+                true
+              ),
+              ceramic
             );
             body.castShadow = true;
             body.receiveShadow = true;
             product.add(body);
 
-            // Proper C-shaped handle instead of a full torus. Both ends merge
-            // into the ceramic wall and rotate with the exact same product.
+            const bottom = new THREE.Mesh(
+              new THREE.CircleGeometry(radius * 0.965, 160),
+              ceramic
+            );
+            bottom.rotation.x = -Math.PI / 2;
+            bottom.position.y = -bodyHeight / 2;
+            bottom.receiveShadow = true;
+            product.add(bottom);
+
+            const rim = new THREE.Mesh(
+              new THREE.TorusGeometry(radius * 1.01, radius * 0.045, 24, 160),
+              ceramic
+            );
+            // TorusGeometry is created in the XY plane. Rotate it into the
+            // horizontal XZ plane so it is a real mug rim, not a vertical hoop.
+            rim.rotation.x = Math.PI / 2;
+            rim.position.y = bodyHeight / 2;
+            rim.castShadow = true;
+            product.add(rim);
+
+            // Darker recessed inner surface gives the top opening real depth.
+            const inside = new THREE.Mesh(
+              new THREE.CircleGeometry(radius * 0.91, 160),
+              new THREE.MeshStandardMaterial({
+                color: 0xd9d9d5,
+                roughness: 0.72,
+                metalness: 0,
+              })
+            );
+            inside.rotation.x = -Math.PI / 2;
+            inside.position.y = bodyHeight / 2 - 0.055;
+            product.add(inside);
+
+            // Handle lies in the camera-facing XY plane and is physically part
+            // of the same rotating product group.
             const handleCurve = new THREE.CatmullRomCurve3([
               new THREE.Vector3(radius * 0.91, bodyHeight * 0.28, -0.025),
-              new THREE.Vector3(radius * 1.36, bodyHeight * 0.31, -0.02),
-              new THREE.Vector3(radius * 1.63, bodyHeight * 0.17, -0.015),
-              new THREE.Vector3(radius * 1.67, 0, -0.01),
-              new THREE.Vector3(radius * 1.63, -bodyHeight * 0.17, -0.015),
-              new THREE.Vector3(radius * 1.36, -bodyHeight * 0.31, -0.02),
+              new THREE.Vector3(radius * 1.34, bodyHeight * 0.30, -0.02),
+              new THREE.Vector3(radius * 1.58, bodyHeight * 0.17, -0.015),
+              new THREE.Vector3(radius * 1.62, 0, -0.01),
+              new THREE.Vector3(radius * 1.58, -bodyHeight * 0.17, -0.015),
+              new THREE.Vector3(radius * 1.34, -bodyHeight * 0.30, -0.02),
               new THREE.Vector3(radius * 0.91, -bodyHeight * 0.28, -0.025),
             ]);
             const handle = new THREE.Mesh(
               new THREE.TubeGeometry(
                 handleCurve,
                 96,
-                radius * 0.105,
+                radius * 0.10,
                 20,
                 false
               ),
@@ -270,9 +287,9 @@ export default function Cylindrical3DScene({
             handle.receiveShadow = true;
             product.add(handle);
 
-            printableHeight = bodyHeight * 0.88;
-            printableCenterY = -bodyHeight * 0.01;
-            printableRadius = radius * 1.013;
+            printableHeight = bodyHeight * 0.80;
+            printableCenterY = -bodyHeight * 0.015;
+            printableRadius = radius * 1.022;
           }
 
           const coverageDeg = Math.min(
