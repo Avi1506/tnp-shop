@@ -461,12 +461,12 @@ export default function Cylindrical3DScene({
 
             const pitch = THREE.MathUtils.degToRad(
               activeConfig.modelRef === "procedural:mug-v1"
-                ? 7
+                ? 12
                 : activeConfig.cameraPitchDeg ?? 5
             );
             camera.position.set(
               center.x,
-              center.y + Math.sin(pitch) * distance * 0.86,
+              center.y + Math.sin(pitch) * distance,
               center.z + Math.cos(pitch) * distance
             );
             camera.lookAt(
