@@ -114,9 +114,12 @@ export default function Cylindrical3DScene({
           const configuredRadius = Math.max(0.55, activeConfig.radius || 0.98);
           const radius =
             activeConfig.modelRef === "procedural:mug-v1"
-              ? configuredRadius * 0.9
+              ? 1
               : configuredRadius;
-          const bodyHeight = Math.max(1.4, activeConfig.bodyHeight || 2.55);
+          const bodyHeight =
+            activeConfig.modelRef === "procedural:mug-v1"
+              ? 2.45
+              : Math.max(1.4, activeConfig.bodyHeight || 2.55);
           const baseColor = new THREE.Color(activeConfig.baseColor ?? "#fbfbf8");
           const roughness = Math.min(1, Math.max(0.12, activeConfig.roughness ?? 0.28));
           const metalness = Math.min(1, Math.max(0, activeConfig.metalness ?? 0));
@@ -263,15 +266,15 @@ export default function Cylindrical3DScene({
             // of the same rotating product group.
             const handle = new THREE.Mesh(
               new THREE.TorusGeometry(
-                radius * 0.56,
-                radius * 0.12,
+                radius * 0.54,
+                radius * 0.105,
                 28,
                 128
               ),
               ceramic
             );
-            handle.scale.y = 1.22;
-            handle.position.set(radius * 1.2, 0.01, -0.025);
+            handle.scale.y = 1.18;
+            handle.position.set(radius * 1.17, 0.01, -0.035);
             handle.castShadow = true;
             handle.receiveShadow = true;
             product.add(handle);
@@ -279,6 +282,32 @@ export default function Cylindrical3DScene({
             printableHeight = bodyHeight * 0.80;
             printableCenterY = -bodyHeight * 0.015;
             printableRadius = radius * 1.022;
+          }
+
+          const coverageDeg = Math.min(
+            350,
+            Math.max(180, activeConfig.wrapCoverageDeg || 270)
+          );
+          const thetaLength = THREE.MathUtils.degToRad(coverageDeg);
+          const thetaOffset = THREE.MathUtils.degToRad(
+            activeConfig.wrapOffsetDeg ?? 0
+          );
+          const thetaStart = -thetaLength / 2 + thetaOffset;
+
+          if (activeConfig.modelRef === "procedural:mug-v1") {
+            // Preserve the real print proportion (e.g. 7.5 × 3.5 in) on the
+            // physical cylinder. arcLength / printHeight must equal artwork
+            // width / height, otherwise the customer artwork is stretched.
+            const physicalAspect =
+              Math.max(0.1, template.physical.width) /
+              Math.max(0.1, template.physical.height);
+            const aspectCorrectHeight =
+              (radius * thetaLength) / Math.max(0.1, physicalAspect);
+            printableHeight = Math.min(
+              bodyHeight * 0.91,
+              Math.max(bodyHeight * 0.72, aspectCorrectHeight)
+            );
+            printableCenterY = -bodyHeight * 0.01;
           }
 
           const textureLoader = new THREE.TextureLoader();
@@ -299,16 +328,6 @@ export default function Cylindrical3DScene({
                 8,
                 activeRenderer.capabilities.getMaxAnisotropy()
               );
-
-              const coverageDeg = Math.min(
-                350,
-                Math.max(180, activeConfig.wrapCoverageDeg || 270)
-              );
-              const thetaLength = THREE.MathUtils.degToRad(coverageDeg);
-              const thetaOffset = THREE.MathUtils.degToRad(
-                activeConfig.wrapOffsetDeg ?? 0
-              );
-              const thetaStart = -thetaLength / 2 + thetaOffset;
 
               const printSurface = new THREE.Mesh(
                 new THREE.CylinderGeometry(
@@ -404,16 +423,18 @@ export default function Cylindrical3DScene({
             );
 
             const pitch = THREE.MathUtils.degToRad(
-              activeConfig.cameraPitchDeg ?? 7
+              activeConfig.modelRef === "procedural:mug-v1"
+                ? Math.max(8, activeConfig.cameraPitchDeg ?? 8)
+                : activeConfig.cameraPitchDeg ?? 5
             );
             camera.position.set(
               center.x,
-              center.y + Math.sin(pitch) * distance * 0.18,
+              center.y + Math.sin(pitch) * distance,
               center.z + Math.cos(pitch) * distance
             );
             camera.lookAt(
               center.x,
-              center.y + bodyHeight * 0.02,
+              center.y + bodyHeight * 0.015,
               center.z
             );
             camera.updateProjectionMatrix();
