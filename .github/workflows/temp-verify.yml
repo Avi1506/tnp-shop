@@ -21,7 +21,7 @@ jobs:
           npx playwright install chromium
       - name: Visual QA
         env:
-          QA_URL: "https://tnp-shop-jfstqniz3-tnp-shop-team.vercel.app/products/chinese-cup/customize?_vercel_share=kj5noInMWHEcZ9kVUa89LPaBZGBoU4G9"
+          QA_URL: "https://tnp-shop-j3y4rjlx9-tnp-shop-team.vercel.app/products/chinese-cup/customize?_vercel_share=t8M2TpAVgBMIMUtJob1PYqZll12r2wOd"
         run: |
           mkdir -p qa-output
           cat > qa.mjs <<'EOF'
