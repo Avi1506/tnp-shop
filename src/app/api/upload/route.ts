@@ -3,6 +3,15 @@ import { saveUpload, UploadError } from "@/lib/storage";
 
 export const runtime = "nodejs";
 
+const ALLOWED_FOLDERS = new Set([
+  "customizations",
+  "previews",
+  "print-ready",
+  "mockups",
+  "products",
+  "bulk-enquiries",
+]);
+
 export async function POST(req: NextRequest) {
   try {
     const formData = await req.formData();
@@ -13,8 +22,11 @@ export async function POST(req: NextRequest) {
       return NextResponse.json({ error: "No file provided." }, { status: 400 });
     }
 
-    const safeFolder = folder.replace(/[^a-z0-9-_]/gi, "").slice(0, 40) || "customizations";
-    const url = await saveUpload(file, safeFolder);
+    if (!ALLOWED_FOLDERS.has(folder)) {
+      return NextResponse.json({ error: "Upload folder is not allowed." }, { status: 400 });
+    }
+
+    const url = await saveUpload(file, folder);
     return NextResponse.json({ url });
   } catch (err) {
     if (err instanceof UploadError) {

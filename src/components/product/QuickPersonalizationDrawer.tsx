@@ -16,6 +16,7 @@ import {
   ArrowRight,
 } from "lucide-react";
 import { trackEvent } from "@/lib/analytics";
+import type { PrintShape } from "@/db/schema";
 
 export type QuickCustomizeProduct = {
   id: string;
@@ -24,7 +25,7 @@ export type QuickCustomizeProduct = {
   price: number;
   mockupImage: string;
   printArea?: { xPct: number; yPct: number; widthPct: number; heightPct: number };
-  shape?: "rectangle" | "circle" | "square";
+  shape?: PrintShape;
   dimensions?: { widthInches: number; heightInches: number };
 };
 

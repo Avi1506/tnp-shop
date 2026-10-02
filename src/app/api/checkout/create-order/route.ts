@@ -15,6 +15,7 @@ const lineSchema = z.object({
   customization: z
     .object({
       uploadedImages: z.array(z.string()),
+      originalUploads: z.array(z.string()).optional(),
       text: z.string().nullable(),
       font: z.string().nullable(),
       textColor: z.string().nullable(),
@@ -22,6 +23,34 @@ const lineSchema = z.object({
       size: z.string().nullable(),
       specialInstructions: z.string().nullable(),
       previewImage: z.string().nullable(),
+      previewImageUrl: z.string().nullable().optional(),
+      printReadyArtworkUrl: z.string().nullable().optional(),
+      designState: z.object({
+        version: z.literal(1),
+        fabric: z.record(z.string(), z.unknown()),
+        canvas: z.object({ width: z.number().positive(), height: z.number().positive() }),
+        template: z.object({
+          id: z.string(),
+          version: z.number().int().positive(),
+          printType: z.enum(["flat", "cylindrical", "shaped"]),
+          shape: z.enum(["rectangle", "square", "circle", "heart", "custom-mask"]),
+        }),
+        selectedVariant: z.object({
+          size: z.string().nullable(),
+          productColor: z.string().nullable(),
+        }),
+      }).nullable().optional(),
+      templateId: z.string().nullable().optional(),
+      templateVersion: z.number().int().positive().nullable().optional(),
+      printOutput: z.object({
+        width: z.number().positive(),
+        height: z.number().positive(),
+        unit: z.enum(["in", "cm"]),
+        dpi: z.number().int().min(72).max(600),
+        widthPx: z.number().int().positive(),
+        heightPx: z.number().int().positive(),
+      }).nullable().optional(),
+      qualityWarnings: z.array(z.string().max(500)).optional(),
       approved: z.boolean(),
     })
     .nullable(),
