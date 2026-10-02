@@ -21,7 +21,7 @@ jobs:
           npx playwright install chromium
       - name: Capture rim QA
         env:
-          QA_URL: "https://tnp-shop-lfn48wb0f-tnp-shop-team.vercel.app/products/chinese-cup/customize?_vercel_share=bhy72soTWH93VxFEgkNXa9VMmb3S5zSW"
+          QA_URL: "https://tnp-shop-ihi4tv6uh-tnp-shop-team.vercel.app/products/chinese-cup/customize?_vercel_share=2bC57pTZ5lHYvKD5skrBLJ8cbJjcgFkC"
         run: |
           mkdir -p qa-output
           cat > qa.mjs <<'EOF'
