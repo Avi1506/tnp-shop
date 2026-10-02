@@ -320,7 +320,9 @@ export default function Cylindrical3DScene({
               bodyHeight * 0.91,
               Math.max(bodyHeight * 0.72, aspectCorrectHeight)
             );
-            printableCenterY = -bodyHeight * 0.01;
+            // Shift the print slightly upward: slim white lip at the top,
+            // slightly more ceramic visible at the base, matching the reference mug.
+            printableCenterY = bodyHeight * 0.008;
           }
 
           const textureLoader = new THREE.TextureLoader();
