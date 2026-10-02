@@ -15,13 +15,13 @@ jobs:
           cache: npm
       - run: npm ci
       - run: npx tsc --noEmit
-      - run: npx eslint src/components/product/Cylindrical3DScene.tsx src/lib/print-template.ts
+      - run: npx eslint src/components/product/Cylindrical3DScene.tsx src/components/product/ProductPreviewRenderer.tsx src/components/product/CustomizeCanvas.tsx src/lib/print-template.ts
       - run: |
           npm install --no-save playwright@1.56.1
           npx playwright install chromium
       - name: Capture cylinder seam QA
         env:
-          QA_URL: "https://tnp-shop-n5ftrkpgl-tnp-shop-team.vercel.app/products/chinese-cup/customize?_vercel_share=YcWlZRZL6pHq8PO8azKK7uYoJyYsDRPy"
+          QA_URL: "https://tnp-shop-fljhfkzfs-tnp-shop-team.vercel.app/products/chinese-cup/customize?_vercel_share=DTvg7FNTiATD8ystJGmnhLVB3tngrQx9"
         run: |
           mkdir -p qa-output
           cat > qa.mjs <<'EOF'
