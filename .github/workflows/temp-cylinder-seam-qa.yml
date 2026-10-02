@@ -1,0 +1,68 @@
+name: temp-cylinder-seam-qa
+on:
+  push:
+    branches:
+      - feat/customization-engine-v2-20260928
+jobs:
+  verify:
+    runs-on: ubuntu-latest
+    timeout-minutes: 15
+    steps:
+      - uses: actions/checkout@v4
+      - uses: actions/setup-node@v4
+        with:
+          node-version: 22
+          cache: npm
+      - run: npm ci
+      - run: npx tsc --noEmit
+      - run: npx eslint src/components/product/Cylindrical3DScene.tsx src/lib/print-template.ts
+      - run: |
+          npm install --no-save playwright@1.56.1
+          npx playwright install chromium
+      - name: Capture cylinder seam QA
+        env:
+          QA_URL: "https://tnp-shop-8ujdzge6l-tnp-shop-team.vercel.app/products/chinese-cup/customize?_vercel_share=yumspZ5LRQgeHT2FnwC942RSkshSOpK0"
+        run: |
+          mkdir -p qa-output
+          cat > qa.mjs <<'EOF'
+          import { chromium } from "playwright";
+          import fs from "node:fs";
+          const browser=await chromium.launch({headless:true});
+          const page=await browser.newPage({viewport:{width:1440,height:1100}});
+          const errors=[];
+          page.on("console",m=>{if(m.type()==="error")errors.push(m.text())});
+          page.on("pageerror",e=>errors.push(e.message));
+          await page.goto(process.env.QA_URL,{waitUntil:"networkidle",timeout:90000});
+
+          const dataUrl=await page.evaluate(()=>{
+            const c=document.createElement("canvas"); c.width=1500; c.height=700;
+            const x=c.getContext("2d"); if(!x) throw new Error("ctx");
+            x.fillStyle="#f4dfad"; x.fillRect(0,0,1500,700);
+            x.fillStyle="#d8212b"; x.fillRect(0,0,120,700); x.fillRect(1380,0,120,700);
+            x.strokeStyle="#17335d"; x.lineWidth=5;
+            for(let px=0;px<=1500;px+=125){x.beginPath();x.moveTo(px,0);x.lineTo(px,700);x.stroke();}
+            for(let py=0;py<=700;py+=100){x.beginPath();x.moveTo(0,py);x.lineTo(1500,py);x.stroke();}
+            x.fillStyle="#17335d";x.font="bold 105px sans-serif";x.textAlign="center";x.textBaseline="middle";
+            x.fillText("FRONT",750,350);
+            x.font="bold 48px sans-serif";
+            x.fillText("LEFT EDGE",180,80); x.fillText("RIGHT EDGE",1300,80);
+            return c.toDataURL("image/png");
+          });
+          await page.locator('input[type="file"]').first().setInputFiles({name:"edge-test.png",mimeType:"image/png",buffer:Buffer.from(dataUrl.split(",")[1],"base64")});
+          await page.waitForTimeout(6000);
+          await page.getByRole("button",{name:/Preview on product/i}).click();
+          await page.waitForTimeout(4500);
+          await page.screenshot({path:"qa-output/front.png",fullPage:true});
+          await page.getByRole("button",{name:"Left",exact:true}).first().click(); await page.waitForTimeout(1400);
+          await page.screenshot({path:"qa-output/left.png",fullPage:true});
+          await page.getByRole("button",{name:"Right",exact:true}).first().click(); await page.waitForTimeout(1400);
+          await page.screenshot({path:"qa-output/right.png",fullPage:true});
+          fs.writeFileSync("qa-output/errors.txt",errors.join("\n"));
+          await browser.close();
+          EOF
+          node qa.mjs
+      - uses: actions/upload-artifact@v4
+        if: always()
+        with:
+          name: cylinder-seam-qa
+          path: qa-output/
