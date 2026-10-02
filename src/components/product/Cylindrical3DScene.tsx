@@ -59,6 +59,9 @@ export default function Cylindrical3DScene({
       return;
     }
 
+    const activeHost = host;
+    const activeConfig = config;
+
     let disposed = false;
     let renderer: RendererLike | null = null;
     let resizeObserver: ResizeObserver | null = null;
@@ -86,7 +89,7 @@ export default function Cylindrical3DScene({
           activeRenderer.domElement.style.display = "block";
           activeRenderer.domElement.style.width = "100%";
           activeRenderer.domElement.style.height = "100%";
-          host.replaceChildren(activeRenderer.domElement);
+          activeHost.replaceChildren(activeRenderer.domElement);
 
           // Soft studio lighting similar to a product-photography light tent.
           scene.add(new THREE.HemisphereLight(0xffffff, 0xd4d0c8, 2.15));
@@ -108,17 +111,17 @@ export default function Cylindrical3DScene({
           const product = new THREE.Group();
           scene.add(product);
 
-          const radius = Math.max(0.55, config.radius || 0.98);
-          const bodyHeight = Math.max(1.4, config.bodyHeight || 2.55);
-          const baseColor = new THREE.Color(config.baseColor ?? "#fbfbf8");
-          const roughness = Math.min(1, Math.max(0.12, config.roughness ?? 0.28));
-          const metalness = Math.min(1, Math.max(0, config.metalness ?? 0));
+          const radius = Math.max(0.55, activeConfig.radius || 0.98);
+          const bodyHeight = Math.max(1.4, activeConfig.bodyHeight || 2.55);
+          const baseColor = new THREE.Color(activeConfig.baseColor ?? "#fbfbf8");
+          const roughness = Math.min(1, Math.max(0.12, activeConfig.roughness ?? 0.28));
+          const metalness = Math.min(1, Math.max(0, activeConfig.metalness ?? 0));
 
           const ceramic = new THREE.MeshPhysicalMaterial({
             color: baseColor,
             roughness,
             metalness,
-            clearcoat: config.modelRef === "procedural:mug-v1" ? 0.3 : 0.08,
+            clearcoat: activeConfig.modelRef === "procedural:mug-v1" ? 0.3 : 0.08,
             clearcoatRoughness: 0.22,
           });
 
@@ -127,7 +130,7 @@ export default function Cylindrical3DScene({
           let printableCenterY = 0;
           let floorY = -bodyHeight / 2;
 
-          if (config.modelRef === "procedural:bottle-v1") {
+          if (activeConfig.modelRef === "procedural:bottle-v1") {
             const straightHeight = bodyHeight * 0.72;
             const shoulderHeight = bodyHeight * 0.17;
             const neckHeight = bodyHeight * 0.11;
@@ -292,11 +295,11 @@ export default function Cylindrical3DScene({
 
               const coverageDeg = Math.min(
                 350,
-                Math.max(180, config.wrapCoverageDeg || 270)
+                Math.max(180, activeConfig.wrapCoverageDeg || 270)
               );
               const thetaLength = THREE.MathUtils.degToRad(coverageDeg);
               const thetaOffset = THREE.MathUtils.degToRad(
-                config.wrapOffsetDeg ?? 0
+                activeConfig.wrapOffsetDeg ?? 0
               );
               const thetaStart = -thetaLength / 2 + thetaOffset;
 
@@ -317,7 +320,7 @@ export default function Cylindrical3DScene({
                   alphaTest: 0.002,
                   roughness: Math.min(0.72, roughness + 0.08),
                   metalness,
-                  clearcoat: config.modelRef === "procedural:mug-v1" ? 0.12 : 0.04,
+                  clearcoat: activeConfig.modelRef === "procedural:mug-v1" ? 0.12 : 0.04,
                   clearcoatRoughness: 0.3,
                   polygonOffset: true,
                   polygonOffsetFactor: -2,
@@ -357,7 +360,7 @@ export default function Cylindrical3DScene({
           function render() {
             if (disposed || !renderer) return;
 
-            const rect = host.getBoundingClientRect();
+            const rect = activeHost.getBoundingClientRect();
             if (rect.width < 2 || rect.height < 2) return;
 
             const thumbnail = rect.width <= 140 || rect.height <= 140;
@@ -385,7 +388,7 @@ export default function Cylindrical3DScene({
             const fitDistance =
               (Math.max(distanceForHeight, distanceForWidth) + depthAllowance) *
               (thumbnail ? 1.24 : 1.22);
-            const configuredDistance = Math.max(0, config.cameraDistance ?? 0);
+            const configuredDistance = Math.max(0, activeConfig.cameraDistance ?? 0);
             const distance = Math.max(
               thumbnail ? 4.2 : 4.8,
               Math.min(configuredDistance || fitDistance, fitDistance * 1.16),
@@ -393,7 +396,7 @@ export default function Cylindrical3DScene({
             );
 
             const pitch = THREE.MathUtils.degToRad(
-              config.cameraPitchDeg ?? 7
+              activeConfig.cameraPitchDeg ?? 7
             );
             camera.position.set(
               center.x,
@@ -410,7 +413,7 @@ export default function Cylindrical3DScene({
           }
 
           resizeObserver = new ResizeObserver(render);
-          resizeObserver.observe(host);
+          resizeObserver.observe(activeHost);
           render();
         } catch {
           onUnavailable();
