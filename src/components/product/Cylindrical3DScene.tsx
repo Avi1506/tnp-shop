@@ -411,11 +411,36 @@ export default function Cylindrical3DScene({
                 return;
               }
               context.clearRect(0, 0, canvasWidth, artworkHeight);
+
+              // CylinderGeometry's UV seam is at the camera-facing front.
+              // Therefore the customer artwork must wrap ACROSS texture u=0/1,
+              // while the non-printable gap sits in the middle of the texture
+              // (the rear of the mug/bottle). Split the artwork at its centre:
+              // right half -> left edge, left half -> right edge.
+              const sourceHalf = sourceWidth / 2;
+              const leftDestinationWidth = Math.floor(artworkWidth / 2);
+              const rightDestinationWidth = artworkWidth - leftDestinationWidth;
+
               context.drawImage(
                 sourceImage,
-                Math.round((canvasWidth - artworkWidth) / 2),
+                sourceHalf,
                 0,
-                artworkWidth,
+                sourceWidth - sourceHalf,
+                sourceHeight,
+                0,
+                0,
+                rightDestinationWidth,
+                artworkHeight
+              );
+              context.drawImage(
+                sourceImage,
+                0,
+                0,
+                sourceHalf,
+                sourceHeight,
+                canvasWidth - leftDestinationWidth,
+                0,
+                leftDestinationWidth,
                 artworkHeight
               );
 
