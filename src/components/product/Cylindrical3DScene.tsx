@@ -118,7 +118,7 @@ export default function Cylindrical3DScene({
               : configuredRadius;
           const bodyHeight =
             activeConfig.modelRef === "procedural:mug-v1"
-              ? 2.45
+              ? 2.32
               : Math.max(1.4, activeConfig.bodyHeight || 2.55);
           const baseColor = new THREE.Color(activeConfig.baseColor ?? "#fbfbf8");
           const roughness = Math.min(1, Math.max(0.12, activeConfig.roughness ?? 0.28));
@@ -239,33 +239,32 @@ export default function Cylindrical3DScene({
             product.add(bottom);
 
             const rim = new THREE.Mesh(
-              new THREE.TorusGeometry(
-                radius * 0.992,
-                radius * 0.026,
-                20,
+              new THREE.RingGeometry(
+                radius * 0.90,
+                radius * 0.995,
                 160
               ),
               ceramic
             );
-            // Keep the lip subtle: the previous torus was too thick and made
-            // the mug look like it had a separate lid/head.
-            rim.rotation.x = Math.PI / 2;
-            rim.position.y = bodyHeight / 2 - 0.01;
+            // A real mug lip is a thin horizontal annulus, not a raised torus.
+            // This removes the detached "lid/head" appearance.
+            rim.rotation.x = -Math.PI / 2;
+            rim.position.y = bodyHeight / 2 + 0.002;
             rim.castShadow = true;
             rim.receiveShadow = true;
             product.add(rim);
 
             // Darker recessed inner surface gives the top opening real depth.
             const inside = new THREE.Mesh(
-              new THREE.CircleGeometry(radius * 0.875, 160),
+              new THREE.CircleGeometry(radius * 0.895, 160),
               new THREE.MeshStandardMaterial({
-                color: 0xdededa,
-                roughness: 0.76,
+                color: 0xe6e6e2,
+                roughness: 0.78,
                 metalness: 0,
               })
             );
             inside.rotation.x = -Math.PI / 2;
-            inside.position.y = bodyHeight / 2 - 0.06;
+            inside.position.y = bodyHeight / 2 - 0.035;
             product.add(inside);
 
             // Handle lies in the camera-facing XY plane and is physically part
@@ -438,12 +437,12 @@ export default function Cylindrical3DScene({
 
             const pitch = THREE.MathUtils.degToRad(
               activeConfig.modelRef === "procedural:mug-v1"
-                ? 5.5
+                ? 4.5
                 : activeConfig.cameraPitchDeg ?? 5
             );
             camera.position.set(
               center.x,
-              center.y + Math.sin(pitch) * distance * 0.82,
+              center.y + Math.sin(pitch) * distance * 0.76,
               center.z + Math.cos(pitch) * distance
             );
             camera.lookAt(
