@@ -21,7 +21,7 @@ jobs:
           npx playwright install chromium
       - name: Capture cylinder seam QA
         env:
-          QA_URL: "https://tnp-shop-fljhfkzfs-tnp-shop-team.vercel.app/products/chinese-cup/customize?_vercel_share=DTvg7FNTiATD8ystJGmnhLVB3tngrQx9"
+          QA_URL: "https://tnp-shop-oiam3ry0o-tnp-shop-team.vercel.app/products/chinese-cup/customize?_vercel_share=LrTNNjzfzTklSbQ4DYIYvMoLPJwuhCg1"
         run: |
           mkdir -p qa-output
           cat > qa.mjs <<'EOF'
