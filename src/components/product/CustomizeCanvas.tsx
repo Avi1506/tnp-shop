@@ -3,7 +3,6 @@
 import { useCallback, useEffect, useMemo, useRef, useState } from "react";
 import * as fabric from "fabric";
 import { useRouter } from "next/navigation";
-import Image from "next/image";
 import {
   CheckCircle2,
   Eye,
@@ -22,8 +21,8 @@ import type {
   PrintTemplate,
   SavedDesignState,
 } from "@/db/schema";
-import { outputPixels, resolveProductTemplate, sourceStyle } from "@/lib/print-template";
-import Cylindrical3DPreview from "@/components/product/Cylindrical3DPreview";
+import { outputPixels, resolveProductTemplate } from "@/lib/print-template";
+import ProductPreviewRenderer from "@/components/product/ProductPreviewRenderer";
 import { uploadFile } from "@/lib/client-upload";
 import { useCart } from "@/components/cart/CartContext";
 
@@ -58,29 +57,6 @@ function heartPath(width: number, height: number) {
     }
   );
   return path;
-}
-
-function previewMaskStyle(template: PrintTemplate): React.CSSProperties {
-  if (template.shape === "circle") return { borderRadius: "50%", overflow: "hidden" };
-  if (template.shape === "heart") {
-    return {
-      clipPath:
-        "polygon(50% 92%, 38% 82%, 26% 72%, 15% 60%, 8% 46%, 8% 30%, 15% 17%, 28% 10%, 40% 13%, 50% 25%, 60% 13%, 72% 10%, 85% 17%, 92% 30%, 92% 46%, 85% 60%, 74% 72%, 62% 82%)",
-      overflow: "hidden",
-    };
-  }
-  if (template.shape === "custom-mask" && template.maskUrl) {
-    return {
-      WebkitMaskImage: `url("${template.maskUrl}")`,
-      maskImage: `url("${template.maskUrl}")`,
-      WebkitMaskSize: "100% 100%",
-      maskSize: "100% 100%",
-      WebkitMaskRepeat: "no-repeat",
-      maskRepeat: "no-repeat",
-      overflow: "hidden",
-    };
-  }
-  return { overflow: "hidden" };
 }
 
 export default function CustomizeCanvas({
@@ -1044,18 +1020,11 @@ export default function CustomizeCanvas({
                     }`}
                   >
                     <div className="relative h-[72px] w-[72px] overflow-hidden rounded-xl bg-offwhite">
-                      {template.printType === "cylindrical" && artworkSnapshot ? (
-                        <Cylindrical3DPreview
+                      {artworkSnapshot || view.mockupUrl ? (
+                        <ProductPreviewRenderer
                           artworkUrl={artworkSnapshot}
                           template={template}
                           view={view}
-                        />
-                      ) : view.mockupUrl ? (
-                        <Image
-                          src={view.mockupUrl}
-                          alt={view.name}
-                          fill
-                          className="object-contain"
                         />
                       ) : (
                         <div className="flex h-full items-center justify-center text-[10px] text-navy/40">
@@ -1072,55 +1041,14 @@ export default function CustomizeCanvas({
 
               <div className="order-1 flex min-h-[360px] items-center justify-center overflow-hidden rounded-2xl border border-border bg-white lg:order-2 lg:min-h-[560px]">
                 <div className="relative aspect-square w-full max-w-[620px]">
-                  {template.printType === "cylindrical" &&
-                  selectedView &&
-                  artworkSnapshot ? (
-                    <Cylindrical3DPreview
+                  {selectedView ? (
+                    <ProductPreviewRenderer
                       artworkUrl={artworkSnapshot}
                       template={template}
                       view={selectedView}
+                      priority
                     />
-                  ) : (
-                    <>
-                      {selectedView?.mockupUrl ? (
-                        <Image
-                          src={selectedView.mockupUrl}
-                          alt={selectedView.name}
-                          fill
-                          className="object-contain"
-                          priority
-                        />
-                      ) : null}
-
-                      {selectedView && artworkSnapshot && (
-                        <div
-                          className="absolute"
-                          style={{
-                            left: `${selectedView.printArea.xPct}%`,
-                            top: `${selectedView.printArea.yPct}%`,
-                            width: `${selectedView.printArea.widthPct}%`,
-                            height: `${selectedView.printArea.heightPct}%`,
-                            transform: `rotate(${selectedView.rotation ?? 0}deg)`,
-                            transformOrigin: "center",
-                            ...previewMaskStyle(template),
-                          }}
-                        >
-                          <div className="relative h-full w-full overflow-hidden">
-                            {/* eslint-disable-next-line @next/next/no-img-element */}
-                            <img
-                              src={artworkSnapshot}
-                              alt="Your design preview"
-                              className="absolute max-w-none"
-                              style={{
-                                ...sourceStyle(selectedView.source),
-                                objectFit: "fill",
-                              }}
-                            />
-                          </div>
-                        </div>
-                      )}
-                    </>
-                  )}
+                  ) : null}
                 </div>
               </div>
             </div>
