@@ -120,6 +120,7 @@ export function resolveProductTemplate(
       curvatureStrength: number;
       perspectiveStrength: number;
       edgeFalloff: number;
+      angleDeg: number;
     }> = {
       front: {
         printArea: { xPct: 28.2, yPct: 33.7, widthPct: 43.8, heightPct: 47.2 },
